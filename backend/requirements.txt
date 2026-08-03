@@ -1,11 +1,5 @@
-fastapi
-uvicorn
-python-dotenv
-groq
-google-generativeai
-sentence-transformers
-faiss-cpu
-langchain-text-splitters
-pydantic
-python-multipart
-httpx
+Flask==2.3.3
+Flask-Cors==4.0.0
+requests==2.31.0
+python-dotenv==1.0.0
+httpx==0.27.0
