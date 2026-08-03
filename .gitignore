@@ -1,0 +1,37 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environments
+venv/
+.venv/
+env/
+ENV/
+
+# Secrets & Configuration
+.env
+*.pem
+*.key
+
+# IDEs & Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Large datasets, RAG vector stores & binary models
+backend/data/
+data/
+vector_store/
+*.faiss
+*.pkl
+*.index
+
+# Binaries & Media
+*.pdf
+*.gif
+*.zip
+*.7z
+*.exe
