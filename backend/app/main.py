@@ -10,7 +10,21 @@ from app.routes.analyze import router as analyze_router
 from app.routes.chat import router as chat_router
 from app.routes.preview import router as preview_router
 
-FRONTEND_DIR = Path(__file__).resolve().parent.parent.parent / "frontend"
+from fastapi.responses import FileResponse, JSONResponse
+
+def _find_frontend_dir() -> Path:
+    candidates = [
+        Path(__file__).resolve().parent.parent.parent / "frontend",
+        Path.cwd() / "frontend",
+        Path.cwd().parent / "frontend",
+        Path(__file__).resolve().parent.parent / "frontend",
+    ]
+    for c in candidates:
+        if c.exists() and (c / "index.html").exists():
+            return c
+    return candidates[0]
+
+FRONTEND_DIR = _find_frontend_dir()
 
 def _prewarm_rag():
     try:
@@ -45,8 +59,18 @@ def create_app() -> FastAPI:
     async def health_check():
         return {"status": "ok"}
 
-    if FRONTEND_DIR.exists():
+    index_html = FRONTEND_DIR / "index.html"
+    if index_html.exists():
         app.mount("/", StaticFiles(directory=str(FRONTEND_DIR), html=True), name="frontend")
+    else:
+        @app.get("/", tags=["Root"])
+        async def root():
+            return JSONResponse({
+                "message": "PhishGuard AI Backend Active",
+                "status": "online",
+                "docs": "/docs",
+                "health": "/health"
+            })
 
     # Pre-warm RAG model in background so first user query is instant
     threading.Thread(target=_prewarm_rag, daemon=True).start()
