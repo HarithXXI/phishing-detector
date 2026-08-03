@@ -1,0 +1,17 @@
+venv
+.venv
+__pycache__
+*.pycache
+*.pkl
+*.joblib
+*.model
+*.h5
+.env
+.git
+node_modules
+instance
+.mypy_cache
+.pytest_cache
+backend/data
+vector_store
+data
