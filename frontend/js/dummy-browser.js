@@ -73,6 +73,30 @@
         </div>`;
     }
 
-    // Expose window.renderDummyBrowser
+    function updateDummyBrowserTelemetry(container, apiData, origUrl) {
+        if (!container || !apiData) return;
+        const finalUrl = apiData.final_url || origUrl;
+        const score = apiData.score !== undefined ? apiData.score : (apiData.composite_score || 75);
+        const riskLevel = (apiData.risk_level || apiData.threat_level || "HIGH").toUpperCase();
+        const redirectNotice = finalUrl !== origUrl ? ` (redirected from ${escapeHTML(origUrl)})` : "";
+
+        const urlBar = container.querySelector(".url-bar");
+        if (urlBar) {
+            urlBar.innerHTML = `🔒 ${escapeHTML(finalUrl)}${redirectNotice}`;
+        }
+
+        const browserBottom = container.querySelector(".browser-bottom");
+        if (browserBottom) {
+            browserBottom.innerHTML = `
+                <span><strong>URL:</strong> ${escapeHTML(origUrl)}</span>
+                <span><strong>→</strong> ${escapeHTML(finalUrl)}</span>
+                <span><strong>Risk:</strong> ${escapeHTML(riskLevel)} (${score}%)</span>
+                <span><strong>Cloud:</strong> ✓ Isolated</span>
+            `;
+        }
+    }
+
+    // Expose window functions
     window.renderDummyBrowser = renderDummyBrowser;
+    window.updateDummyBrowserTelemetry = updateDummyBrowserTelemetry;
 })();
