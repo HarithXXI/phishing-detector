@@ -8,6 +8,7 @@ import re
 import math
 import socket
 import hashlib
+import base64
 from urllib.parse import urlparse, quote
 import requests
 from flask import Flask, request, jsonify, send_from_directory
@@ -36,9 +37,6 @@ def check_virustotal(url: str):
     if not VIRUSTOTAL_API_KEY or not url:
         return None
     try:
-        url_id = base64_url_id = hashlib.sha256(url.encode()).hexdigest()
-        # VT URL lookup using url identifier endpoint
-        import base64
         url_id_b64 = base64.urlsafe_b64encode(url.encode()).decode().strip("=")
         r = requests.get(
             f"https://www.virustotal.com/api/v3/urls/{url_id_b64}",
@@ -53,8 +51,8 @@ def check_virustotal(url: str):
                 "harmless": stats.get("harmless", 0),
                 "total": sum(stats.values()) if stats else 0,
             }
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"VT error: {e}")
     return None
 
 
@@ -76,8 +74,8 @@ def check_abuseipdb(ip: str):
                 "totalReports": data.get("totalReports", 0),
                 "countryCode": data.get("countryCode", "US"),
             }
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"AbuseIPDB error: {e}")
     return None
 
 
@@ -163,7 +161,6 @@ def analyze_text_rules(text: str):
         score += 35
         reasons.append(f"Sensitive credential request: '{', '.join(found_cred)}'")
 
-    # Extract URLs & IPs
     urls = re.findall(r'https?://[^\s<>"]+|www\.[^\s<>"]+|[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}(?:/[^\s<>"]*)?', text)
     clean_urls = [u for u in urls if not u.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.css', '.js'))]
     ips = re.findall(r'\b(?:\d{1,3}\.){3}\d{1,3}\b', text)
@@ -245,9 +242,12 @@ def call_ai_chat(user_msg: str):
 # --- Route Handlers ---
 @app.route('/')
 def index():
-    if STATIC_DIR and os.path.exists(os.path.join(STATIC_DIR, 'index.html')):
-        return send_from_directory(STATIC_DIR, 'index.html')
-    return jsonify({"message": "PhishGuard AI Serverless Engine Active", "status": "online"})
+    try:
+        if STATIC_DIR and os.path.exists(os.path.join(STATIC_DIR, 'index.html')):
+            return send_from_directory(STATIC_DIR, 'index.html')
+    except Exception:
+        pass
+    return jsonify({"message": "PhishGuard AI Serverless Engine Active", "status": "online", "frontend_path": STATIC_DIR})
 
 
 @app.route('/<path:path>')
@@ -270,7 +270,7 @@ def health():
 
 @app.route('/api/analyze', methods=['POST'])
 def analyze():
-    data = request.get_json(silent=True) or request.args
+    data = request.get_json(silent=True) or request.args or {}
     text = (data.get('text', '') or data.get('url', '') or data.get('content', '')).strip()
 
     if not text:
@@ -290,7 +290,7 @@ def analyze():
     final_score, risk_level = calculate_composite_score(rule_score, url_score, text)
     attack_vector = determine_attack_vector(text, urls_found, risk_level)
 
-    # Optional external threat lookups
+    # External threat lookups
     vt_result = check_virustotal(urls_found[0]) if urls_found else None
     abuse_result = check_abuseipdb(ips_found[0]) if ips_found else None
 
@@ -353,7 +353,7 @@ def preview():
 
 @app.route('/api/chat', methods=['POST'])
 def chat():
-    data = request.get_json(silent=True) or request.args
+    data = request.get_json(silent=True) or request.args or {}
     msg = (data.get('message', '') or data.get('prompt', '')).strip()
 
     if not msg:
