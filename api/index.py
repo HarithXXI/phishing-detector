@@ -247,21 +247,20 @@ def calculate_composite_score(rule_score, url_score, text, vt_result=None, abuse
 
 
 def determine_attack_vector(text, urls, risk_level):
-    if risk_level == "LOW" and not urls:
-        return "Clean / No Attack Patterns"
-
     txt_lower = text.lower()
     
     if any(s in txt_lower for s in ["paypal"]):
         return "PayPal Brand Impersonation"
-    if any(s in txt_lower for s in ["chase", "banking", "bank", "account suspended", "verify password", "ssn", "otp"]):
+    if any(s in txt_lower for s in ["chase", "banking", "bank", "account suspended", "verify password", "ssn", "otp", "login", "password"]):
         return "Banking Credential Harvesting"
-    if any(s in txt_lower for s in ["sms", "frm:", "msg:", "text message", "credited", "rs.", "withdrawal"]):
+    if any(s in txt_lower for s in ["sms", "frm:", "msg:", "text message", "credited", "rs.", "withdrawal", "bonus"]):
         return "Smishing (SMS Scam)"
-    if any(s in txt_lower for s in ["cutt.ly", "bit.ly", "tinyurl.com", "goo.gl", "is.gd"]):
+    if any(s in txt_lower for s in ["cutt.ly", "bit.ly", "tinyurl.com", "goo.gl", "is.gd", "t.co"]):
         return "Malicious Shortener Redirect"
     if urls:
         return "Phishing URL Link"
+    if any(s in txt_lower for s in ["urgent", "immediately", "24 hours", "locked", "expire", "action required"]):
+        return "Social Engineering / Urgency Lure"
     if risk_level != "LOW":
         return "Social Engineering / Email Phishing"
         
@@ -417,6 +416,9 @@ def analyze():
         "detection_flow": detection_flow,
         "flow": detection_flow,
         "ai_result": {
+            "attack_type": attack_vector,
+            "is_phishing": final_score >= 35,
+            "risk_level": risk_level,
             "reasons": all_reasons if all_reasons else ["Content analyzed safe."]
         }
     }
