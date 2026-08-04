@@ -798,14 +798,12 @@ function showToast(message) {
     }, 4000);
 }
 
-// Handle clicking on any fraud card inside sidebar
+// Handle clicking on any fraud card inside sidebar (Report a Fraud)
 document.querySelectorAll(".fraud-card").forEach((card) => {
     card.addEventListener("click", () => {
-        const type = (card.dataset.type || "other").toLowerCase();
-        const targetUrl = fraudLinks[type] || "https://cybercrime.gov.in";
-
+        const targetUrl = "https://cybercrime.gov.in/login";
         closeAppSidebar();
-        showToast("Redirecting to National Cyber Crime Reporting Portal - cybercrime.gov.in");
+        showToast("Redirecting to National Cyber Crime Reporting Portal - cybercrime.gov.in/login");
         window.open(targetUrl, "_blank", "noopener,noreferrer");
     });
 });
