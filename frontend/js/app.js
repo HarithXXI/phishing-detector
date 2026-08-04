@@ -244,7 +244,7 @@ function renderResults(data) {
     const attackDesc = document.getElementById("attack-desc");
     const iconContainer = document.getElementById("attack-icon-container");
 
-    const attackLabel = aiResult.attack_type || "none";
+    const attackLabel = data.attack_type || data.primary_attack_vector || aiResult.attack_type || "Clean / No Attack Patterns";
     if (attackTypeVal) attackTypeVal.textContent = formatAttackType(attackLabel);
     if (attackDesc) attackDesc.textContent = buildSummary(data);
 
