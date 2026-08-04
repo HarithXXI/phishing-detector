@@ -1,6 +1,6 @@
 /**
- * PhishGuard AI — Realtime Sandboxed Cloud Browser Preview Engine
- * Zero client-side script execution. Strictly loads images rendered in cloud.
+ * PhishGuard AI — Ultra-Fast Realtime Sandboxed Cloud Browser Engine
+ * Sub-second screenshot streaming with zero client-side script execution.
  */
 
 (function () {
@@ -25,8 +25,14 @@
         const score = apiData ? (apiData.score !== undefined ? apiData.score : (apiData.composite_score || 75)) : 75;
         const riskLevel = ((apiData && (apiData.risk_level || apiData.threat_level)) || "HIGH").toUpperCase();
 
-        const screenshotApi = (apiData && apiData.screenshot_url) ||
-            `https://api.microlink.io/?url=${encodeURIComponent(finalUrl)}&screenshot=true&meta=false&embed=screenshot.url&waitUntil=networkidle`;
+        const encodedFinal = encodeURIComponent(finalUrl);
+        
+        // Fast primary screenshot provider: WordPress mshots API (sub-second render)
+        const primaryScreenshot = (apiData && apiData.screenshot_url) ||
+            `https://s0.wp.com/mshots/v1/${encodedFinal}?w=1280&h=800`;
+            
+        const fallbackScreenshot = (apiData && apiData.fallback_screenshot_url) ||
+            `https://api.microlink.io/?url=${encodedFinal}&screenshot=true&meta=false&embed=screenshot.url&waitFor=0&ttl=1d`;
 
         const redirectNotice = finalUrl !== origUrl ? ` (redirected from ${escapeHTML(origUrl)})` : "";
 
@@ -42,11 +48,11 @@
                 <span class="preview-badge">🛡️ Cloud Rendered - Zero code on your device</span>
             </div>
             <div class="browser-content" style="height:480px; background:#FFFFFF; overflow:auto; position:relative;">
-                <img id="previewImg" src="${screenshotApi}" 
+                <img id="previewImg" src="${primaryScreenshot}" 
                      alt="Cloud Browser Screenshot"
                      style="width:100%; min-height:100%; object-fit:cover; object-position:top; display:block;"
                      onload="const loader = document.getElementById('previewLoader'); if(loader) loader.style.display='none';"
-                     onerror="this.onerror=null; this.src='https://s0.wp.com/mshots/v1/${encodeURIComponent(finalUrl)}?w=1280&h=800';"
+                     onerror="this.onerror=null; this.src='${fallbackScreenshot}';"
                 />
                 <div id="previewLoader" style="position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; background:#F8FAFC; color:#0F172A; font-family:'Inter', sans-serif; gap:8px;">
                     <div style="font-weight:600; font-size:14px;">🌐 Rendering in isolated cloud browser...</div>
