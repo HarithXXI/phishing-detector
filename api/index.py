@@ -1,17 +1,21 @@
 """
-PhishGuard AI — Lightweight Vercel Serverless Entrypoint (Flask API)
-Under 15MB total bundle size — 100% Vercel Serverless Compatible.
+PhishGuard AI — Standalone Vercel Serverless Function Entrypoint (Flask API)
+100% Standalone & Vercel Serverless Compatible (<15MB bundle).
 """
 
 import os
 import re
-from urllib.parse import quote, urlparse
-import httpx, requests
+import math
+import socket
+import hashlib
+from urllib.parse import urlparse, quote
+import requests
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 
+# Initialize Flask app pointing to frontend static folder
 STATIC_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'frontend'))
-app = Flask(__name__, static_folder=STATIC_DIR)
+app = Flask(__name__, static_folder=STATIC_DIR, template_folder=STATIC_DIR)
 CORS(app)
 
 # Load environment variables if available
@@ -27,7 +31,71 @@ VIRUSTOTAL_API_KEY = os.getenv("VIRUSTOTAL_API_KEY", "")
 ABUSEIPDB_API_KEY = os.getenv("ABUSEIPDB_API_KEY", "")
 
 
-# --- Rule Engine & URL Heuristics ---
+# --- External Threat API Integration ---
+def check_virustotal(url: str):
+    if not VIRUSTOTAL_API_KEY or not url:
+        return None
+    try:
+        url_id = base64_url_id = hashlib.sha256(url.encode()).hexdigest()
+        # VT URL lookup using url identifier endpoint
+        import base64
+        url_id_b64 = base64.urlsafe_b64encode(url.encode()).decode().strip("=")
+        r = requests.get(
+            f"https://www.virustotal.com/api/v3/urls/{url_id_b64}",
+            headers={"x-apikey": VIRUSTOTAL_API_KEY},
+            timeout=4
+        )
+        if r.status_code == 200:
+            stats = r.json().get("data", {}).get("attributes", {}).get("last_analysis_stats", {})
+            return {
+                "malicious": stats.get("malicious", 0),
+                "suspicious": stats.get("suspicious", 0),
+                "harmless": stats.get("harmless", 0),
+                "total": sum(stats.values()) if stats else 0,
+            }
+    except Exception:
+        pass
+    return None
+
+
+def check_abuseipdb(ip: str):
+    if not ABUSEIPDB_API_KEY or not ip:
+        return None
+    try:
+        r = requests.get(
+            "https://api.abuseipdb.com/api/v2/check",
+            headers={"Key": ABUSEIPDB_API_KEY, "Accept": "application/json"},
+            params={"ipAddress": ip, "maxAgeInDays": "90"},
+            timeout=4
+        )
+        if r.status_code == 200:
+            data = r.json().get("data", {})
+            return {
+                "ipAddress": data.get("ipAddress"),
+                "abuseConfidenceScore": data.get("abuseConfidenceScore", 0),
+                "totalReports": data.get("totalReports", 0),
+                "countryCode": data.get("countryCode", "US"),
+            }
+    except Exception:
+        pass
+    return None
+
+
+# --- URL Heuristics & Entropy Analysis ---
+def calculate_shannon_entropy(text: str) -> float:
+    if not text:
+        return 0.0
+    entropy = 0.0
+    length = len(text)
+    freq = {}
+    for char in text:
+        freq[char] = freq.get(char, 0) + 1
+    for count in freq.values():
+        p = count / length
+        entropy -= p * math.log2(p)
+    return round(entropy, 2)
+
+
 def analyze_url_heuristics(url: str):
     parsed = urlparse(url if url.startswith(("http://", "https://")) else "https://" + url)
     domain = parsed.netloc.lower()
@@ -46,13 +114,13 @@ def analyze_url_heuristics(url: str):
 
     if "@" in domain or "%20" in domain:
         score += 25
-        flags.append("Suspicious obfuscated characters in URL domain")
+        flags.append("Obfuscated characters in URL domain")
 
     keywords = ["login", "verify", "secure", "account", "banking", "paypal", "update", "signin", "auth", "confirm", "wallet"]
     found_kw = [k for k in keywords if k in domain or k in path]
     if found_kw:
         score += 20 * len(found_kw)
-        flags.append(f"Security/Authentication keywords in URL path: {', '.join(found_kw)}")
+        flags.append(f"Security/Authentication keywords in path: {', '.join(found_kw)}")
 
     shorteners = ["cutt.ly", "bit.ly", "tinyurl.com", "goo.gl", "is.gd", "t.co", "ow.ly"]
     if any(s in domain for s in shorteners):
@@ -63,9 +131,15 @@ def analyze_url_heuristics(url: str):
         score += 20
         flags.append("Excessive subdomain depth detected")
 
+    entropy = calculate_shannon_entropy(domain)
+    if entropy > 4.2:
+        score += 15
+        flags.append(f"High domain character entropy ({entropy}) suggesting algorithmic generation")
+
     return min(score, 100), flags, domain
 
 
+# --- Text Rules & Threat Analysis ---
 def analyze_text_rules(text: str):
     txt_lower = text.lower()
     score = 0
@@ -89,14 +163,12 @@ def analyze_text_rules(text: str):
         score += 35
         reasons.append(f"Sensitive credential request: '{', '.join(found_cred)}'")
 
+    # Extract URLs & IPs
     urls = re.findall(r'https?://[^\s<>"]+|www\.[^\s<>"]+|[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}(?:/[^\s<>"]*)?', text)
-    clean_urls = []
-    for u in urls:
-        if u.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.css', '.js')):
-            continue
-        clean_urls.append(u)
+    clean_urls = [u for u in urls if not u.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.css', '.js'))]
+    ips = re.findall(r'\b(?:\d{1,3}\.){3}\d{1,3}\b', text)
 
-    return min(score, 100), reasons, clean_urls
+    return min(score, 100), reasons, clean_urls, ips
 
 
 def calculate_composite_score(rule_score, url_score, text):
@@ -135,9 +207,13 @@ def determine_attack_vector(text, urls, risk_level):
     return "Email Phishing / Social Engineering"
 
 
-# --- AI Chat Engine (Groq / Gemini HTTP Call) ---
+# --- AI Chat Assistant (Groq / Gemini HTTP Call) ---
 def call_ai_chat(user_msg: str):
-    sys_prompt = "You are PhishGuard AI, an expert cybersecurity assistant specializing in phishing detection, scam analysis, smishing prevention, and digital safety."
+    sys_prompt = (
+        "You are PhishGuard AI, an expert cybersecurity assistant specializing in phishing detection, "
+        "smishing prevention, social engineering analysis, and digital safety. "
+        "Keep responses clear, helpful, professional, and actionable."
+    )
     
     if GROQ_API_KEY:
         try:
@@ -160,25 +236,45 @@ def call_ai_chat(user_msg: str):
         except Exception:
             pass
 
-    return f"PhishGuard AI Analysis: '{user_msg[:60]}...' shows social engineering indicators. Never click unverified links or provide passwords."
+    return (
+        "I'm PhishGuard AI Assistant. Paste any suspicious link or email in the analyzer above. "
+        "For digital safety: never share OTPs, check domain spelling carefully, and verify sender addresses before clicking links."
+    )
 
 
-# --- API Routes ---
-@app.route('/health', methods=['GET'])
-@app.route('/api/health', methods=['GET'])
+# --- Route Handlers ---
+@app.route('/')
+def index():
+    if os.path.exists(os.path.join(app.static_folder, 'index.html')):
+        return send_from_directory(app.static_folder, 'index.html')
+    return jsonify({"message": "PhishGuard AI Serverless Engine Active", "status": "online"})
+
+
+@app.route('/<path:path>')
+def serve_static(path):
+    target = os.path.join(app.static_folder, path)
+    if os.path.exists(target):
+        return send_from_directory(app.static_folder, path)
+    if os.path.exists(os.path.join(app.static_folder, 'index.html')):
+        return send_from_directory(app.static_folder, 'index.html')
+    return jsonify({"error": "Not Found"}), 404
+
+
+@app.route('/health')
+@app.route('/api/health')
 def health():
-    return jsonify({"status": "ok", "service": "PhishGuard AI Vercel Engine"})
+    return jsonify(status="ok", engine="PhishGuard Vercel Standalone Engine")
 
 
-@app.route('/api/analyze', methods=['POST', 'GET'])
+@app.route('/api/analyze', methods=['POST'])
 def analyze():
     data = request.get_json(silent=True) or request.args
-    text = (data.get("text") or data.get("content") or "").strip()
+    text = (data.get('text', '') or data.get('url', '') or data.get('content', '')).strip()
 
     if not text:
         return jsonify({"error": "No text or URL provided"}), 400
 
-    rule_score, rule_reasons, urls_found = analyze_text_rules(text)
+    rule_score, rule_reasons, urls_found, ips_found = analyze_text_rules(text)
     
     url_score = 0
     url_flags = []
@@ -187,10 +283,14 @@ def analyze():
 
     all_reasons = list(set(rule_reasons + url_flags))
     if not all_reasons and (rule_score > 0 or url_score > 0):
-        all_reasons.append("Suspicious patterns detected in request content")
+        all_reasons.append("Suspicious threat patterns identified in content")
 
     final_score, risk_level = calculate_composite_score(rule_score, url_score, text)
     attack_vector = determine_attack_vector(text, urls_found, risk_level)
+
+    # Optional external threat lookups
+    vt_result = check_virustotal(urls_found[0]) if urls_found else None
+    abuse_result = check_abuseipdb(ips_found[0]) if ips_found else None
 
     urgency_score = 75 if any(k in text.lower() for k in ["urgent", "24 hours", "suspended"]) else 20
     financial_score = 85 if any(k in text.lower() for k in ["credited", "rs.", "$", "withdrawal", "bonus"]) else 15
@@ -210,8 +310,11 @@ def analyze():
         "financial_lure": financial_score,
         "risk_factors": all_reasons if all_reasons else ["No suspicious threat patterns identified"],
         "risks": all_reasons if all_reasons else ["No suspicious threat patterns identified"],
+        "reasons": all_reasons if all_reasons else ["No suspicious threat patterns identified"],
         "urls_found": urls_found,
-        "ips_found": [],
+        "ips_found": ips_found,
+        "virustotal": vt_result,
+        "abuseipdb": abuse_result,
         "ai_result": {
             "reasons": all_reasons if all_reasons else ["Content analyzed safe."]
         }
@@ -220,65 +323,44 @@ def analyze():
 
 
 @app.route('/api/preview', methods=['GET', 'POST'])
-@app.route('/preview', methods=['GET', 'POST'])
-def preview_url():
-    target_url = request.args.get('url') or (request.get_json(silent=True) or {}).get('url')
-    if not target_url:
-        return jsonify({"error": "No URL provided", "safe": False}), 400
+def preview():
+    url = request.args.get('url') or (request.get_json(silent=True) or {}).get('url')
+    if not url:
+        return jsonify(error="No URL provided", safe=False), 400
 
-    url = target_url.strip()
-    if not url.startswith(('http://', 'https://')):
-        url = 'https://' + url
+    target_url = url.strip()
+    if not target_url.startswith(('http://', 'https://')):
+        target_url = 'https://' + target_url
 
-    final_url = url
+    final_url = target_url
     try:
-        r = requests.head(url, allow_redirects=True, timeout=5, headers={'User-Agent': 'PhishGuardBot/1.0'})
+        r = requests.head(target_url, allow_redirects=True, timeout=5, headers={'User-Agent': 'PhishGuardBot/1.0'})
         final_url = r.url
     except Exception:
-        final_url = url
+        final_url = target_url
 
-    encoded_url = quote(final_url, safe="")
-    screenshot_url = f"https://api.microlink.io/?url={encoded_url}&screenshot=true&meta=false&embed=screenshot.url"
+    screenshot_url = f"https://api.microlink.io/?url={quote(final_url, safe='')}&screenshot=true&meta=false&embed=screenshot.url"
 
-    return jsonify({
-        "original_url": url,
-        "final_url": final_url,
-        "screenshot_url": screenshot_url,
-        "safe": True
-    })
+    return jsonify(
+        original_url=target_url,
+        final_url=final_url,
+        screenshot_url=screenshot_url,
+        safe=True
+    )
 
 
-@app.route('/api/chat', methods=['POST', 'GET'])
-@app.route('/chat', methods=['POST', 'GET'])
+@app.route('/api/chat', methods=['POST'])
 def chat():
     data = request.get_json(silent=True) or request.args
-    msg = (data.get("message") or data.get("prompt") or "").strip()
+    msg = (data.get('message', '') or data.get('prompt', '')).strip()
+
     if not msg:
-        return jsonify({"reply": "Hello! How can I assist you with cybersecurity today?"})
+        return jsonify(reply="I'm PhishGuard assistant. How can I help you today?")
 
     ai_reply = call_ai_chat(msg)
-    return jsonify({"reply": ai_reply, "response": ai_reply})
+    return jsonify(reply=ai_reply, response=ai_reply)
 
 
-# --- Static Frontend Routes ---
-@app.route('/')
-def serve_frontend():
-    if STATIC_DIR and os.path.exists(os.path.join(STATIC_DIR, 'index.html')):
-        return send_from_directory(STATIC_DIR, 'index.html')
-    return jsonify({"message": "PhishGuard AI Serverless Running", "status": "online"})
-
-
-@app.route('/<path:path>')
-def serve_static(path):
-    if STATIC_DIR:
-        target = os.path.join(STATIC_DIR, path)
-        if os.path.exists(target):
-            return send_from_directory(STATIC_DIR, path)
-        index_path = os.path.join(STATIC_DIR, 'index.html')
-        if os.path.exists(index_path):
-            return send_from_directory(STATIC_DIR, 'index.html')
-    return jsonify({"error": "Not Found"}), 404
-
-
+# Standalone runner for local testing (Vercel imports 'app' variable directly)
 if __name__ == '__main__':
     app.run(debug=True)
