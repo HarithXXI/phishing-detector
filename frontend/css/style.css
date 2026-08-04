@@ -111,12 +111,14 @@ body {
     -webkit-overflow-scrolling: touch;
 }
 
-main.container,
+main.container {
+    flex: 1;
+}
+
 .container {
-    max-width: 1200px !important;
-    width: 100% !important;
-    margin: 0 auto !important;
-    padding: 0 24px !important;
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 0 24px;
 }
 
 /* --- Background Glow Orbs & Watermark --- */
@@ -324,9 +326,7 @@ body > *:not(.bg-glow-container) {
 }
 
 /* --- Input Area --- */
-.input-section, .input-card, .textarea-wrap {
-    width: 100% !important;
-    max-width: 100% !important;
+.input-section {
     margin-bottom: 24px;
 }
 
@@ -343,9 +343,7 @@ div:has(> textarea), .input-container {
 }
 
 textarea, #input-text {
-    width: 100% !important;
-    max-width: 100% !important;
-    box-sizing: border-box !important;
+    width: 100%;
     min-height: 160px;
     padding: 20px;
     font-family: var(--font-sans);
@@ -359,7 +357,7 @@ textarea, #input-text {
     border-radius: 12px !important;
     color: #e2e8f0 !important;
     box-shadow: none !important;
-    transition: background 0.35s ease, border-color 0.35s ease, box-shadow 0.35s ease !important;
+    transition: all 0.35s cubic-bezier(0.4,0,0.2,1) !important;
 }
 
 /* Light theme - OVERRIDE to be same transparent 6% see-through */
