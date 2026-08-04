@@ -298,6 +298,34 @@ def analyze():
     financial_score = 85 if any(k in text.lower() for k in ["credited", "rs.", "$", "withdrawal", "bonus"]) else 15
     social_score = 65 if len(all_reasons) > 0 else 10
 
+    detection_flow = [
+        {
+            "layer": "Rule-Based Engine",
+            "findings": len(rule_reasons),
+            "reasons": rule_reasons,
+            "status": "completed"
+        },
+        {
+            "layer": "URL Heuristic Engine",
+            "findings": len(url_flags),
+            "urls_found": len(urls_found),
+            "reasons": url_flags,
+            "status": "completed"
+        },
+        {
+            "layer": "Threat Intelligence",
+            "virustotal": vt_result or ({"error": "No URL to query"} if not urls_found else vt_result),
+            "abuseipdb": abuse_result or ({"error": "No IP to query"} if not ips_found else abuse_result),
+            "status": "completed"
+        },
+        {
+            "layer": "AI Reasoning (Gemini)",
+            "attack_type": attack_vector,
+            "reasons": all_reasons if all_reasons else ["Content analyzed safe."],
+            "status": "completed"
+        }
+    ]
+
     response_payload = {
         "text": text,
         "score": final_score,
@@ -317,6 +345,8 @@ def analyze():
         "ips_found": ips_found,
         "virustotal": vt_result,
         "abuseipdb": abuse_result,
+        "detection_flow": detection_flow,
+        "flow": detection_flow,
         "ai_result": {
             "reasons": all_reasons if all_reasons else ["Content analyzed safe."]
         }
