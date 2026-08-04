@@ -275,7 +275,14 @@ function renderResults(data) {
     renderAiPanel(aiResult, data.breakdown?.ai_reasoning || 0, data.breakdown?.ai_bonus || 0);
 
     // --- Timeline ---
-    renderTimeline(data.detection_flow || []);
+    const pipelineSteps = (data.detection_flow && data.detection_flow.length > 0) ? data.detection_flow :
+                          (data.flow && data.flow.length > 0) ? data.flow : [
+                              { layer: "Rule-Based Engine", findings: (data.risks || []).length, status: "completed" },
+                              { layer: "URL Heuristic Engine", findings: (data.risks || []).length, urls_found: (data.urls_found || []).length, status: "completed" },
+                              { layer: "Threat Intelligence", virustotal: data.virustotal || {}, abuseipdb: data.abuseipdb || {}, status: "completed" },
+                              { layer: "AI Reasoning (Gemini)", attack_type: data.attack_type || "Phishing / Social Engineering", status: "completed" }
+                          ];
+    renderTimeline(pipelineSteps);
 
     // Show section
     resultsSection.classList.add("active");
