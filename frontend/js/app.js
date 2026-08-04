@@ -843,11 +843,11 @@ if (btnPreviewUrl && inputLinkSep && dummyContainer) {
             ]);
 
             const mergedData = { ...analyzeRes, ...previewRes };
-            if (window.renderDummyBrowser) {
-                dummyContainer.innerHTML = window.renderDummyBrowser(mergedData, normalizedUrl);
+            if (window.updateDummyBrowserTelemetry) {
+                window.updateDummyBrowserTelemetry(dummyContainer, mergedData, normalizedUrl);
             }
         } catch (err) {
-            // Browser frame already active
+            // Browser frame already active and image loaded smoothly
         }
     });
 }
