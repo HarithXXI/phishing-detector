@@ -204,6 +204,18 @@
 
     closeBtn.addEventListener("click", closeChat);
 
+    // ---- Close chatbot when tapping anywhere outside in the web UI ----
+    document.addEventListener("click", (e) => {
+        if (!isOpen) return;
+        const isInsideWin = win && win.contains(e.target);
+        const isInsideToggle = toggle && toggle.contains(e.target);
+        const isInsideLightbox = lightbox && lightbox.contains(e.target);
+
+        if (!isInsideWin && !isInsideToggle && !isInsideLightbox) {
+            closeChat();
+        }
+    });
+
     // ---- Suggestion pills ----
     suggestions.addEventListener("click", (e) => {
         const btn = e.target.closest(".cw-suggestion");
