@@ -1,6 +1,6 @@
 /**
  * PhishGuard AI — Ultra-Fast Realtime Sandboxed Cloud Browser Engine
- * Sub-second screenshot streaming with zero client-side script execution.
+ * Zero client-side script execution. Strictly loads images rendered in cloud.
  */
 
 (function () {
@@ -27,12 +27,11 @@
 
         const encodedFinal = encodeURIComponent(finalUrl);
         
-        // Fast primary screenshot provider: WordPress mshots API (optimised resolution for 3x faster transfer)
-        const primaryScreenshot = (apiData && apiData.screenshot_url) ||
-            `https://s0.wp.com/mshots/v1/${encodedFinal}?w=960&h=600`;
+        // Cloud screenshot URL returned by backend (Microlink API with Thum.io fallback)
+        const primaryScreenshot = (apiData && (apiData.screenshot || apiData.screenshot_url)) ||
+            `https://api.microlink.io/?url=${encodedFinal}&screenshot=true&embed=screenshot.url`;
             
-        const fallbackScreenshot = (apiData && apiData.fallback_screenshot_url) ||
-            `https://api.microlink.io/?url=${encodedFinal}&screenshot=true&meta=false&embed=screenshot.url&waitFor=0&ttl=1d`;
+        const fallbackScreenshot = (apiData && apiData.fallback_screenshot_url) || "/assets/no-preview.png";
 
         const redirectNotice = finalUrl !== origUrl ? ` (redirected from ${escapeHTML(origUrl)})` : "";
 
@@ -83,6 +82,11 @@
         const urlBar = container.querySelector(".url-bar");
         if (urlBar) {
             urlBar.innerHTML = `🔒 ${escapeHTML(finalUrl)}${redirectNotice}`;
+        }
+
+        const previewImg = container.querySelector("#previewImg");
+        if (previewImg && (apiData.screenshot || apiData.screenshot_url)) {
+            previewImg.src = apiData.screenshot || apiData.screenshot_url;
         }
 
         const browserBottom = container.querySelector(".browser-bottom");
