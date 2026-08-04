@@ -56,7 +56,7 @@ def check_virustotal(url: str):
     return None
 
 
-def resolve_domain_ip(url_str: str):
+def resolve_domain_ip(url_str: str | None) -> str | None:
     if not url_str:
         return None
     try:
@@ -76,7 +76,7 @@ def resolve_domain_ip(url_str: str):
     return None
 
 
-def check_abuseipdb(ip: str):
+def check_abuseipdb(ip: str | None):
     if not ABUSEIPDB_API_KEY:
         return {"error": "ABUSEIPDB_API_KEY missing on Vercel environment"}
     if not ip:
