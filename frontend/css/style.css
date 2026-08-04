@@ -90,6 +90,11 @@ html {
 
 body {
     background-color: var(--bg-base);
+    background-image: url('/assets/logo.jpg');
+    background-repeat: no-repeat;
+    background-position: center center;
+    background-attachment: fixed;
+    background-size: cover;
     color: var(--text-main);
     font-family: var(--font-sans);
     line-height: 1.5;
