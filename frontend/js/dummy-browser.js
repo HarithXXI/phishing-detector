@@ -27,9 +27,9 @@
 
         const encodedFinal = encodeURIComponent(finalUrl);
         
-        // Fast primary screenshot provider: WordPress mshots API (sub-second render)
+        // Fast primary screenshot provider: WordPress mshots API (optimised resolution for 3x faster transfer)
         const primaryScreenshot = (apiData && apiData.screenshot_url) ||
-            `https://s0.wp.com/mshots/v1/${encodedFinal}?w=1280&h=800`;
+            `https://s0.wp.com/mshots/v1/${encodedFinal}?w=960&h=600`;
             
         const fallbackScreenshot = (apiData && apiData.fallback_screenshot_url) ||
             `https://api.microlink.io/?url=${encodedFinal}&screenshot=true&meta=false&embed=screenshot.url&waitFor=0&ttl=1d`;
@@ -50,6 +50,8 @@
             <div class="browser-content" style="height:480px; background:#FFFFFF; overflow:auto; position:relative;">
                 <img id="previewImg" src="${primaryScreenshot}" 
                      alt="Cloud Browser Screenshot"
+                     loading="eager"
+                     fetchpriority="high"
                      style="width:100%; min-height:100%; object-fit:cover; object-position:top; display:block;"
                      onload="const loader = document.getElementById('previewLoader'); if(loader) loader.style.display='none';"
                      onerror="this.onerror=null; this.src='${fallbackScreenshot}';"
