@@ -10,12 +10,13 @@ import httpx, requests
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 
-app = Flask(__name__, static_folder='../frontend')
+STATIC_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'frontend'))
+app = Flask(__name__, static_folder=STATIC_DIR)
 CORS(app)
 
 # Load environment variables if available
 try:
-    from dotenv import load_workbook, load_dotenv
+    from dotenv import load_dotenv
     load_dotenv()
 except Exception:
     pass
@@ -262,18 +263,20 @@ def chat():
 # --- Static Frontend Routes ---
 @app.route('/')
 def serve_frontend():
-    if os.path.exists(os.path.join(app.static_folder, 'index.html')):
-        return send_from_directory(app.static_folder, 'index.html')
+    if STATIC_DIR and os.path.exists(os.path.join(STATIC_DIR, 'index.html')):
+        return send_from_directory(STATIC_DIR, 'index.html')
     return jsonify({"message": "PhishGuard AI Serverless Running", "status": "online"})
 
 
 @app.route('/<path:path>')
 def serve_static(path):
-    target = os.path.join(app.static_folder, path)
-    if os.path.exists(target):
-        return send_from_directory(app.static_folder, path)
-    if os.path.exists(os.path.join(app.static_folder, 'index.html')):
-        return send_from_directory(app.static_folder, 'index.html')
+    if STATIC_DIR:
+        target = os.path.join(STATIC_DIR, path)
+        if os.path.exists(target):
+            return send_from_directory(STATIC_DIR, path)
+        index_path = os.path.join(STATIC_DIR, 'index.html')
+        if os.path.exists(index_path):
+            return send_from_directory(STATIC_DIR, 'index.html')
     return jsonify({"error": "Not Found"}), 404
 
 
