@@ -251,28 +251,7 @@
                     </div>
                 </section>
 
-                <!-- URL Safe Preview Section (Separate Sandboxed Cloud Browser) -->
-                <div id="url-preview-section" class="url-preview-card">
-                    <div class="url-preview-header">
-                        <div class="icon">🌐</div>
-                        <div>
-                            <h3>URL Safe Preview</h3>
-                            <p>Isolated cloud browser - no code runs on your device</p>
-                        </div>
-                        <span class="badge">Sandboxed</span>
-                    </div>
-                    <div class="url-input-row">
-                        <div class="url-input-wrap">
-                            <span>🔗</span>
-                            <input id="input-link-separate" type="text" placeholder="Paste suspicious URL here: https://paypal-secure-login.com/verify" />
-                            <button id="btn-clear-url">Clear</button>
-                        </div>
-                        <button id="btn-preview-url">🔍 Preview URL</button>
-                    </div>
-                    <div id="dummy-browser-container" class="dummy-browser-container empty">
-                        <div class="empty-state">Paste a URL above and click Preview to see safe screenshot</div>
-                    </div>
-                </div>
+
 
                 <!-- Error State -->
                 <div class="error-card" id="error-state">
@@ -508,6 +487,29 @@
                         </div>
                     </div>
                 </section>
+
+                <!-- URL Safe Preview Section (Separate Sandboxed Cloud Browser - Placed at Bottom) -->
+                <div id="url-preview-section" class="url-preview-card" style="margin-top: 32px;">
+                    <div class="url-preview-header">
+                        <div class="icon">🌐</div>
+                        <div>
+                            <h3>URL Safe Preview</h3>
+                            <p>Isolated cloud browser - no code runs on your device</p>
+                        </div>
+                        <span class="badge">Sandboxed</span>
+                    </div>
+                    <div class="url-input-row">
+                        <div class="url-input-wrap">
+                            <span>🔗</span>
+                            <input id="input-link-separate" type="text" placeholder="Paste suspicious URL here: https://paypal-secure-login.com/verify" />
+                            <button id="btn-clear-url">Clear</button>
+                        </div>
+                        <button id="btn-preview-url">🔍 Preview URL</button>
+                    </div>
+                    <div id="dummy-browser-container" class="dummy-browser-container empty">
+                        <div class="empty-state">Paste a URL above and click Preview to see safe screenshot</div>
+                    </div>
+                </div>
             </main>
 
             <!-- Sticky Full Width Footer -->
