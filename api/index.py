@@ -32,6 +32,28 @@ VIRUSTOTAL_API_KEY = os.getenv("VIRUSTOTAL_API_KEY", "")
 ABUSEIPDB_API_KEY = os.getenv("ABUSEIPDB_API_KEY", "")
 
 
+# --- Cloud Screenshot Engine ---
+def get_screenshot_url(url: str | None) -> str:
+    if not url:
+        return "/assets/no-preview.png"
+    target = url.strip()
+    if not target.startswith(("http://", "https://")):
+        target = "https://" + target
+    encoded = quote(target, safe="")
+    
+    microlink_url = f"https://api.microlink.io/?url={encoded}&screenshot=true&embed=screenshot.url"
+    thum_url = f"https://image.thum.io/get/width/1200/crop/800/{target}"
+    
+    try:
+        r = requests.get(microlink_url, timeout=3)
+        if r.status_code == 200:
+            return microlink_url
+    except Exception:
+        pass
+    
+    return thum_url
+
+
 # --- External Threat API Integration ---
 def check_virustotal(url: str):
     if not VIRUSTOTAL_API_KEY or not url:
@@ -350,6 +372,8 @@ def analyze():
         }
     ]
 
+    screenshot = get_screenshot_url(urls_found[0] if urls_found else None)
+
     response_payload = {
         "text": text,
         "score": final_score,
@@ -369,6 +393,8 @@ def analyze():
         "ips_found": ips_found,
         "virustotal": vt_result,
         "abuseipdb": abuse_result,
+        "screenshot": screenshot,
+        "screenshot_url": screenshot,
         "detection_flow": detection_flow,
         "flow": detection_flow,
         "ai_result": {
@@ -395,14 +421,14 @@ def preview():
     except Exception:
         final_url = target_url
 
-    encoded_target = quote(final_url, safe='')
-    screenshot_url = f"https://s0.wp.com/mshots/v1/{encoded_target}?w=960&h=600"
+    screenshot_url = get_screenshot_url(final_url)
 
     return jsonify(
         original_url=target_url,
         final_url=final_url,
+        screenshot=screenshot_url,
         screenshot_url=screenshot_url,
-        fallback_screenshot_url=f"https://api.microlink.io/?url={encoded_target}&screenshot=true&meta=false&embed=screenshot.url&waitFor=0&ttl=1d",
+        fallback_screenshot_url="/assets/no-preview.png",
         safe=True
     )
 
