@@ -56,9 +56,31 @@ def check_virustotal(url: str):
     return None
 
 
-def check_abuseipdb(ip: str):
-    if not ABUSEIPDB_API_KEY or not ip:
+def resolve_domain_ip(url_str: str):
+    if not url_str:
         return None
+    try:
+        if not url_str.startswith(("http://", "https://")):
+            url_str = "https://" + url_str
+        hostname = urlparse(url_str).netloc.split(":")[0]
+        if not hostname:
+            return None
+        if re.match(r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$", hostname):
+            return hostname
+        import socket
+        resolved = socket.gethostbyname(hostname)
+        if not resolved.startswith(("127.", "10.", "192.168.")):
+            return resolved
+    except Exception:
+        pass
+    return None
+
+
+def check_abuseipdb(ip: str):
+    if not ABUSEIPDB_API_KEY:
+        return {"error": "ABUSEIPDB_API_KEY missing on Vercel environment"}
+    if not ip:
+        return {"error": "No IP to query"}
     try:
         r = requests.get(
             "https://api.abuseipdb.com/api/v2/check",
@@ -74,9 +96,10 @@ def check_abuseipdb(ip: str):
                 "totalReports": data.get("totalReports", 0),
                 "countryCode": data.get("countryCode", "US"),
             }
+        else:
+            return {"error": f"AbuseIPDB API HTTP {r.status_code}"}
     except Exception as e:
-        print(f"AbuseIPDB error: {e}")
-    return None
+        return {"error": f"AbuseIPDB error: {str(e)}"}
 
 
 # --- URL Heuristics & Entropy Analysis ---
@@ -291,8 +314,9 @@ def analyze():
     attack_vector = determine_attack_vector(text, urls_found, risk_level)
 
     # External threat lookups
-    vt_result = check_virustotal(urls_found[0]) if urls_found else None
-    abuse_result = check_abuseipdb(ips_found[0]) if ips_found else None
+    vt_result = check_virustotal(urls_found[0]) if urls_found else {"error": "No URL to query"}
+    target_ip = ips_found[0] if ips_found else resolve_domain_ip(urls_found[0] if urls_found else None)
+    abuse_result = check_abuseipdb(target_ip)
 
     urgency_score = 75 if any(k in text.lower() for k in ["urgent", "24 hours", "suspended"]) else 20
     financial_score = 85 if any(k in text.lower() for k in ["credited", "rs.", "$", "withdrawal", "bonus"]) else 15
@@ -314,8 +338,8 @@ def analyze():
         },
         {
             "layer": "Threat Intelligence",
-            "virustotal": vt_result or ({"error": "No URL to query"} if not urls_found else vt_result),
-            "abuseipdb": abuse_result or ({"error": "No IP to query"} if not ips_found else abuse_result),
+            "virustotal": vt_result,
+            "abuseipdb": abuse_result,
             "status": "completed"
         },
         {
