@@ -818,32 +818,36 @@ if (btnPreviewUrl && inputLinkSep && dummyContainer) {
             return;
         }
 
-        dummyContainer.classList.remove("empty");
-        dummyContainer.innerHTML = `<div class="empty-state" style="padding:40px; text-align:center; display:flex; flex-direction:column; align-items:center; gap:12px;">
-            <div class="btn-spinner" style="display:block; border-top-color:#2563EB; width:24px; height:24px;"></div>
-            <div>🌐 Contacting isolated cloud browser for <strong>${urlVal}</strong>...</div>
-        </div>`;
+        const normalizedUrl = urlVal.startsWith("http") ? urlVal : "https://" + urlVal;
 
+        // Render browser container INSTANTLY (0ms delay) so the cloud image starts streaming immediately
+        dummyContainer.classList.remove("empty");
+        if (window.renderDummyBrowser) {
+            dummyContainer.innerHTML = window.renderDummyBrowser(
+                { original_url: normalizedUrl, final_url: normalizedUrl, screenshot_url: `https://s0.wp.com/mshots/v1/${encodeURIComponent(normalizedUrl)}?w=1280&h=800` },
+                normalizedUrl
+            );
+        }
+
+        // Fetch threat metrics & final redirected URL asynchronously in background to update header/footer tags
         try {
             const [analyzeRes, previewRes] = await Promise.all([
                 fetch(`${API_BASE}/api/analyze`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ text: urlVal }),
+                    body: JSON.stringify({ text: normalizedUrl }),
                 }).then(r => r.ok ? r.json() : {}).catch(() => ({})),
-                fetch(`${API_BASE}/api/preview?url=${encodeURIComponent(urlVal)}`)
+                fetch(`${API_BASE}/api/preview?url=${encodeURIComponent(normalizedUrl)}`)
                     .then(r => r.ok ? r.json() : {})
-                    .catch(() => ({ final_url: urlVal, screenshot_url: `https://api.microlink.io/?url=${encodeURIComponent(urlVal)}&screenshot=true&meta=false&embed=screenshot.url` }))
+                    .catch(() => ({ final_url: normalizedUrl }))
             ]);
 
             const mergedData = { ...analyzeRes, ...previewRes };
             if (window.renderDummyBrowser) {
-                dummyContainer.innerHTML = window.renderDummyBrowser(mergedData, urlVal);
+                dummyContainer.innerHTML = window.renderDummyBrowser(mergedData, normalizedUrl);
             }
         } catch (err) {
-            if (window.renderDummyBrowser) {
-                dummyContainer.innerHTML = window.renderDummyBrowser({ final_url: urlVal }, urlVal);
-            }
+            // Browser frame already active
         }
     });
 }
