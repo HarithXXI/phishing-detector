@@ -5,8 +5,8 @@
 (function () {
     "use strict";
 
-    const API = "http://localhost:8000/chat";
-    const STREAM_API = "http://localhost:8000/chat/stream";
+    const API = "/api/chat";
+    const STREAM_API = "/api/chat/stream";
     const MAX_IMG_SIZE = 5 * 1024 * 1024; // 5 MB
 
     // ---- Inject DOM ----
