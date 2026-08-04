@@ -336,13 +336,13 @@ def preview():
 
     final_url = target_url
     try:
-        r = requests.head(target_url, allow_redirects=True, timeout=1.5, headers={'User-Agent': 'PhishGuardBot/1.0'})
+        r = requests.head(target_url, allow_redirects=True, timeout=0.8, headers={'User-Agent': 'PhishGuardBot/1.0'})
         final_url = r.url
     except Exception:
         final_url = target_url
 
     encoded_target = quote(final_url, safe='')
-    screenshot_url = f"https://s0.wp.com/mshots/v1/{encoded_target}?w=1280&h=800"
+    screenshot_url = f"https://s0.wp.com/mshots/v1/{encoded_target}?w=960&h=600"
 
     return jsonify(
         original_url=target_url,
