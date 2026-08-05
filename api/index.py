@@ -218,32 +218,48 @@ def calculate_composite_score(rule_score, url_score, text, vt_result=None, abuse
     
     # Check explicitly for benign/safe example texts
     if ("meeting tomorrow" in txt_lower or "q3 report" in txt_lower or "happy to jump on a call" in txt_lower) and rule_score == 0 and url_score == 0:
-        return 0, "LOW"
+        return 0, "LOW", {"rule_engine": 0, "url_heuristic": 0, "virustotal": 0, "abuseipdb": 0, "ai_reasoning": 0, "ai_bonus": 0}
 
     # Incorporate VirusTotal and AbuseIPDB scores
     vt_score = 0
     if isinstance(vt_result, dict) and not vt_result.get("error"):
-        vt_score = min(100, (vt_result.get("malicious", 0) * 35) + (vt_result.get("suspicious", 0) * 20))
+        vt_score = min(100, (vt_result.get("malicious", 0) * 40) + (vt_result.get("suspicious", 0) * 20))
 
     abuse_score = 0
     if isinstance(abuse_result, dict) and not abuse_result.get("error"):
         abuse_score = min(100, int(abuse_result.get("abuseConfidenceScore", 0) * 0.8))
 
-    base = max(rule_score, url_score, vt_score, abuse_score)
+    raw_score = max(
+        rule_score + int(url_score * 0.6),
+        url_score + int(rule_score * 0.6),
+        vt_score,
+        abuse_score
+    )
     
     # Multi-vector compounding boost
-    active_vectors = sum(1 for s in [rule_score, url_score, vt_score, abuse_score] if s > 0)
-    if active_vectors >= 2:
-        base = min(100, int(base * 1.2) + 10)
+    if (rule_score > 0 or url_score > 0) and (vt_score > 0 or abuse_score > 0):
+        raw_score += 20
+    elif rule_score >= 25 and url_score >= 25:
+        raw_score += 15
 
-    final_score = max(0, min(100, base))
+    final_score = max(0, min(100, raw_score))
     if final_score >= 65:
         level = "HIGH"
     elif final_score >= 30:
         level = "MEDIUM"
     else:
         level = "LOW"
-    return final_score, level
+
+    breakdown = {
+        "rule_engine": min(rule_score, 35),
+        "url_heuristic": min(url_score, 45),
+        "virustotal": min(vt_score, 35),
+        "abuseipdb": min(abuse_score, 20),
+        "ai_reasoning": 20 if final_score >= 30 else 0,
+        "ai_bonus": 5 if final_score >= 65 else 0
+    }
+
+    return final_score, level, breakdown
 
 
 def determine_attack_vector(text, urls, risk_level):
@@ -355,7 +371,7 @@ def analyze():
     target_ip = ips_found[0] if ips_found else resolve_domain_ip(urls_found[0] if urls_found else None)
     abuse_result = check_abuseipdb(target_ip)
 
-    final_score, risk_level = calculate_composite_score(rule_score, url_score, text, vt_result, abuse_result)
+    final_score, risk_level, breakdown = calculate_composite_score(rule_score, url_score, text, vt_result, abuse_result)
     attack_vector = determine_attack_vector(text, urls_found, risk_level)
 
     urgency_score = 75 if any(k in text.lower() for k in ["urgent", "24 hours", "suspended"]) else 20
@@ -400,6 +416,7 @@ def analyze():
         "threat_level": risk_level,
         "attack_type": attack_vector,
         "primary_attack_vector": attack_vector,
+        "breakdown": breakdown,
         "urgency_score": urgency_score,
         "technical_complexity": url_score,
         "social_engineering": social_score,
