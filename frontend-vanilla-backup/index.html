@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="PhishGuard — Premium real-time phishing threat detection powered by heuristics, threat intel, and Gemini AI reasoning.">
+    <title>PhishGuard — Threat Analysis Engine</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='24' fill='%232563EB'/><path d='M50 20 L75 32 V56 C75 70 50 80 50 80 C50 80 25 70 25 56 V32 Z' fill='none' stroke='white' stroke-width='8' stroke-linejoin='round'/></svg>">
+    <link rel="preconnect" href="https://s0.wp.com">
+    <link rel="preconnect" href="https://api.microlink.io">
+    <link rel="dns-prefetch" href="https://s0.wp.com">
+    <link rel="dns-prefetch" href="https://api.microlink.io">
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/chat-widget.css">
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/fraud-tips.css">
+    <link rel="stylesheet" href="css/dummy-browser.css">
+</head>
+<body>
+
+    <!-- Glowing background blobs for glassmorphic effect -->
+    <div class="bg-glow-container">
+        <div class="bg-glow-orb orb-1"></div>
+        <div class="bg-glow-orb orb-2"></div>
+        <div class="bg-glow-orb orb-3"></div>
+        <div class="bg-logo-watermark">
+            <img src="/assets/logo.jpg" alt="Watermark Logo">
+        </div>
+    </div>
+
+    <!-- Application Layout -->
+    <div class="app-layout">
+        <!-- Hidable Left Sidebar (Default Hidden) -->
+        <aside class="app-sidebar" id="appSidebar">
+            <!-- Sidebar Top Header -->
+            <div class="sidebar-top-header">
+                <div class="sidebar-logo">
+                    <div class="logo-icon-sm">
+                        <img src="/assets/header-logo.png" alt="PhishGuard Logo" class="logo-img">
+                    </div>
+                    <span class="sidebar-logo-text">PhishGuard</span>
+                    <span class="live-indicator">
+                        <span class="live-dot"></span>
+                        LIVE
+                    </span>
+                </div>
+                <button class="sidebar-close-btn" id="sidebarClose" aria-label="Close sidebar">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18"/>
+                        <line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Sidebar Scrollable Body Content -->
+            <div class="sidebar-scroll-content">
+                <!-- Report a Fraud Accordion Toggle Button -->
+                <button class="report-toggle-btn" id="reportToggle" aria-expanded="false">
+                    <div class="report-toggle-left">
+                        <div class="caution-icon-box">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                                <path d="M12 9v4"/>
+                                <path d="M12 17h.01"/>
+                            </svg>
+                        </div>
+                        <span class="report-toggle-text">Report a Fraud</span>
+                    </div>
+                    <svg class="chevron-icon" id="reportChevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="6 9 12 15 18 9"/>
+                    </svg>
+                </button>
+
+                <!-- Fraud Panel 6-Cards Grid -->
+                <div class="fraud-panel" id="fraudPanel">
+                    <div class="fraud-grid sidebar-grid">
+                        <!-- 1. Email Fraud -->
+                        <button class="fraud-card" data-type="email">
+                            <div class="fraud-icon-wrap icon-blue">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2563EB" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <rect x="2" y="4" width="20" height="16" rx="2"/>
+                                    <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
+                                </svg>
+                            </div>
+                            <span class="fraud-card-title">Email</span>
+                        </button>
+
+                        <!-- 2. SMS / Smishing -->
+                        <button class="fraud-card" data-type="sms">
+                            <div class="fraud-icon-wrap icon-green">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                                </svg>
+                            </div>
+                            <span class="fraud-card-title">SMS</span>
+                        </button>
+
+                        <!-- 3. Phone Call -->
+                        <button class="fraud-card" data-type="phone">
+                            <div class="fraud-icon-wrap icon-purple">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7C3AED" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+                                </svg>
+                            </div>
+                            <span class="fraud-card-title">Phone Call</span>
+                        </button>
+
+                        <!-- 4. Website -->
+                        <button class="fraud-card" data-type="website">
+                            <div class="fraud-icon-wrap icon-orange">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F97316" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <circle cx="12" cy="12" r="10"/>
+                                    <line x1="2" y1="12" x2="22" y2="12"/>
+                                    <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10z"/>
+                                </svg>
+                            </div>
+                            <span class="fraud-card-title">Website</span>
+                        </button>
+
+                        <!-- 5. Social Media -->
+                        <button class="fraud-card" data-type="social">
+                            <div class="fraud-icon-wrap icon-pink">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#EC4899" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/>
+                                </svg>
+                            </div>
+                            <span class="fraud-card-title">Social Media</span>
+                        </button>
+
+                        <!-- 6. Other Fraud -->
+                        <button class="fraud-card" data-type="other">
+                            <div class="fraud-icon-wrap icon-gray">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#64748B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <circle cx="12" cy="12" r="10"/>
+                                    <line x1="12" y1="8" x2="12" y2="12"/>
+                                    <line x1="12" y1="16" x2="12.01" y2="16"/>
+                                </svg>
+                            </div>
+                            <span class="fraud-card-title">Other</span>
+                        </button>
+                    </div>
+                </div>
+
+
+            </div>
+
+            <!-- Footer Inside Sidebar -->
+            <div class="sidebar-bottom-footer">
+                <p class="sidebar-footer-brand">PhishGuard AI · Developed by Team BYTE-BULDERS</p>
+                <p class="sidebar-footer-gov">Official: <a href="http://cybercrime.gov.in/" target="_blank" rel="noopener">cybercrime.gov.in</a> | 1930</p>
+            </div>
+        </aside>
+
+        <!-- Sidebar Backdrop Overlay -->
+        <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+
+        <!-- Main Application Workspace -->
+        <div class="app-main">
+            <!-- Header -->
+            <header class="header">
+                <div class="container header-inner">
+                    <div class="header-left-actions">
+                        <button id="sidebarOpen" class="sidebar-open-btn" aria-label="Toggle sidebar">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <line x1="3" y1="12" x2="21" y2="12"/>
+                                <line x1="3" y1="6" x2="21" y2="6"/>
+                                <line x1="3" y1="18" x2="21" y2="18"/>
+                            </svg>
+                        </button>
+                        <div class="logo main-logo">
+                            <div class="logo-icon">
+                                <img src="/assets/header-logo.png" alt="PhishGuard Logo" class="logo-img">
+                            </div>
+                            <span class="logo-text">PhishGuard</span>
+                            <span class="live-indicator">
+                                <span class="live-dot"></span>
+                                Live
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="header-right">
+                        <button class="theme-toggle" id="theme-toggle" aria-label="Toggle dark mode">
+                            <!-- Sun Icon -->
+                            <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="12" cy="12" r="5"/>
+                                <line x1="12" y1="1" x2="12" y2="3"/>
+                                <line x1="12" y1="21" x2="12" y2="23"/>
+                                <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+                                <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+                                <line x1="1" y1="12" x2="3" y2="12"/>
+                                <line x1="21" y1="12" x2="23" y2="12"/>
+                                <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+                                <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+                            </svg>
+                            <!-- Moon Icon -->
+                            <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </header>
+
+            <main class="container">
+                <!-- Hero -->
+                <section class="hero">
+                    <h1>Paste any email, message or URL</h1>
+                    <p class="subtitle">Heuristic verification coupled with multi-source intelligence & AI reasoning</p>
+                </section>
+
+                <!-- Input Section -->
+                <section class="input-section">
+                    <div class="input-card">
+                        <div class="textarea-wrap" id="textarea-wrap">
+                            <button type="button" class="btn-add-photo" id="btn-add-photo" title="Upload screenshot / image for OCR scan">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                                    <line x1="12" y1="5" x2="12" y2="19"/>
+                                    <line x1="5" y1="12" x2="19" y2="12"/>
+                                </svg>
+                            </button>
+                            <input type="file" id="photo-input" accept="image/*" class="file-input-hidden" />
+                            
+                            <textarea
+                                id="input-text"
+                                placeholder="Paste suspicious text/URL, or click + to upload a screenshot..."
+                                spellcheck="false"
+                            ></textarea>
+
+                            <!-- Inline Image Preview & OCR Status Bar -->
+                            <div class="inline-photo-preview hidden" id="inline-photo-preview">
+                                <img id="inline-img-thumb" src="" alt="Screenshot Thumb" />
+                                <span class="inline-photo-name" id="inline-photo-name">screenshot.png</span>
+                                <div class="inline-ocr-progress hidden" id="inline-ocr-progress">
+                                    <div class="ocr-spinner-sm"></div>
+                                    <span id="inline-ocr-status">Reading text...</span>
+                                </div>
+                                <button type="button" class="btn-remove-inline-photo" id="btn-remove-inline-photo" title="Remove screenshot">✕</button>
+                            </div>
+                        </div>
+                        <div class="input-actions">
+                            <div class="empty-state-examples" id="example-container">
+                                <span class="example-label">Examples:</span>
+                                <button class="btn-example-pill" data-example="paypal">Try PayPal Scam</button>
+                                <button class="btn-example-pill" data-example="email">Try Email Scam</button>
+                                <button class="btn-example-pill" data-example="sms">Try Suspicious SMS</button>
+                            </div>
+                            <button class="btn-analyze" id="btn-analyze">
+                                <span class="btn-text">Analyze threat</span>
+                                <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                                    <line x1="22" y1="2" x2="11" y2="13"/>
+                                    <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                                </svg>
+                                <div class="btn-spinner"></div>
+                            </button>
+                        </div>
+                    </div>
+                </section>
+
+
+
+                <!-- Error State -->
+                <div class="error-card" id="error-state">
+                    <div class="error-header">
+                        <svg class="error-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                        </svg>
+                        <span>Connection or Analysis Error</span>
+                    </div>
+                    <p class="error-message" id="error-message"></p>
+                </div>
+
+                <!-- Loading State -->
+                <div class="loading-state" id="loading-state">
+                    <!-- Loading Steps Progress -->
+                    <div class="loading-steps">
+                        <div class="loading-step" id="step-rules">
+                            <div class="step-indicator">
+                                <div class="step-dot"></div>
+                                <svg class="step-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+                            </div>
+                            <span class="step-text">Checking rule-based signatures</span>
+                        </div>
+                        <div class="loading-step" id="step-urls">
+                            <div class="step-indicator">
+                                <div class="step-dot"></div>
+                                <svg class="step-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+                            </div>
+                            <span class="step-text">Parsing URL heuristics & brand patterns</span>
+                        </div>
+                        <div class="loading-step" id="step-intel">
+                            <div class="step-indicator">
+                                <div class="step-dot"></div>
+                                <svg class="step-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+                            </div>
+                            <span class="step-text">Querying threat databases (VirusTotal, AbuseIPDB)</span>
+                        </div>
+                        <div class="loading-step" id="step-ai">
+                            <div class="step-indicator">
+                                <div class="step-dot"></div>
+                                <svg class="step-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+                            </div>
+                            <span class="step-text">Consulting Gemini LLM reasoning agent</span>
+                        </div>
+                    </div>
+
+                    <!-- Shimmering Skeleton -->
+                    <div class="skeleton-card">
+                        <div class="skeleton-header">
+                            <div class="skeleton-circle shimmer"></div>
+                            <div class="skeleton-meta">
+                                <div class="skeleton-line shimmer style-short"></div>
+                                <div class="skeleton-line shimmer style-medium"></div>
+                            </div>
+                        </div>
+                        <div class="skeleton-body">
+                            <div class="skeleton-line shimmer"></div>
+                            <div class="skeleton-line shimmer"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Results Section -->
+                <section class="results-section" id="results-section">
+                    <!-- Result Card Top (Hero Result Banner) -->
+                    <div class="result-hero-card" id="result-hero-card">
+                        <div class="result-hero-left">
+                            <div class="threat-score-card">
+                                <h3 class="score-title">Overall Threat Score</h3>
+                                <div class="gauge-wrapper">
+                                    <svg class="gauge-svg" viewBox="0 0 200 110">
+                                        <defs>
+                                            <linearGradient id="riskGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                                                <stop offset="0%" stop-color="#EF4444" />
+                                                <stop offset="50%" stop-color="#F97316" />
+                                                <stop offset="100%" stop-color="#F59E0B" />
+                                            </linearGradient>
+                                        </defs>
+                                        <path class="gauge-track" d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke-width="10" stroke-linecap="round" />
+                                        <path class="gauge-fill" id="gaugeFill" d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke-width="10" stroke-linecap="round" stroke="url(#riskGradient)" stroke-dasharray="251" stroke-dashoffset="251" />
+                                    </svg>
+                                    <div class="gauge-center">
+                                        <div class="score-number"><span id="scoreValue" class="score-risk">0</span><span class="score-divider"> / 100</span></div>
+                                        <div id="riskLabel" class="risk-label">High Risk - Red/Orange</div>
+                                    </div>
+                                </div>
+                                <div class="malicious-badge" id="maliciousBadge">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                                    </svg>
+                                    <span>Malicious</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="result-hero-right">
+                            <span class="risk-badge-premium" id="risk-badge">
+                                <span class="risk-badge-dot"></span>
+                                <span class="risk-badge-text">Low Risk</span>
+                            </span>
+                            <div class="attack-type-banner">
+                                <div class="attack-icon-container" id="attack-icon-container">
+                                    <!-- Icon populated dynamically -->
+                                </div>
+                                <div class="attack-details">
+                                    <span class="attack-type-label">Primary Attack Vector</span>
+                                    <span class="attack-type-value" id="attack-type">None Detected</span>
+                                </div>
+                            </div>
+                            <p class="attack-description" id="attack-desc">Threat verification layers completed clean.</p>
+                        </div>
+                    </div>
+
+                    <!-- Dashboard Grid -->
+                    <div class="dashboard-grid">
+                        <!-- Left: Detection Breakdown -->
+                        <div class="dashboard-column">
+                            <h2 class="section-title-premium">Threat Vectors</h2>
+                            
+                            <div class="breakdown-list">
+                                <!-- Rule Engine Row -->
+                                <div class="breakdown-row" onclick="toggleDetailCard('rule-details')">
+                                    <div class="breakdown-row-left">
+                                        <svg class="vector-icon color-rule" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/>
+                                            <polyline points="14 2 14 8 20 8"/>
+                                            <line x1="16" y1="13" x2="8" y2="13"/>
+                                            <line x1="16" y1="17" x2="8" y2="17"/>
+                                            <line x1="10" y1="9" x2="8" y2="9"/>
+                                        </svg>
+                                        <span class="vector-name">Rule Signatures</span>
+                                    </div>
+                                    <div class="breakdown-row-right">
+                                        <span class="vector-count" id="row-rule-count">0 matches</span>
+                                        <span class="vector-dot" id="row-rule-dot"></span>
+                                        <svg class="row-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+                                    </div>
+                                </div>
+                                <div class="row-detail-panel" id="rule-details">
+                                    <ul class="risk-item-list" id="rule-list"></ul>
+                                </div>
+
+                                <!-- URL Heuristic Row -->
+                                <div class="breakdown-row" onclick="toggleDetailCard('url-details')">
+                                    <div class="breakdown-row-left">
+                                        <svg class="vector-icon color-url" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+                                            <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+                                        </svg>
+                                        <span class="vector-name">Link Analysis</span>
+                                    </div>
+                                    <div class="breakdown-row-right">
+                                        <span class="vector-count" id="row-url-count">0 flags</span>
+                                        <span class="vector-dot" id="row-url-dot"></span>
+                                        <svg class="row-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+                                    </div>
+                                </div>
+                                <div class="row-detail-panel" id="url-details">
+                                    <ul class="risk-item-list" id="url-list"></ul>
+                                </div>
+
+                                <!-- VirusTotal Row -->
+                                <div class="breakdown-row" onclick="toggleDetailCard('vt-details')">
+                                    <div class="breakdown-row-left">
+                                        <svg class="vector-icon color-vt" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                                        </svg>
+                                        <span class="vector-name">VirusTotal Database</span>
+                                    </div>
+                                    <div class="breakdown-row-right">
+                                        <span class="vector-count" id="row-vt-count">—</span>
+                                        <span class="vector-dot" id="row-vt-dot"></span>
+                                        <svg class="row-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+                                    </div>
+                                </div>
+                                <div class="row-detail-panel" id="vt-details">
+                                    <div class="details-panel-inner" id="vt-body"></div>
+                                </div>
+
+                                <!-- AbuseIPDB Row -->
+                                <div class="breakdown-row" onclick="toggleDetailCard('abuse-details')">
+                                    <div class="breakdown-row-left">
+                                        <svg class="vector-icon color-abuse" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"/>
+                                            <line x1="7" y1="2" x2="7" y2="22"/>
+                                            <line x1="17" y1="2" x2="17" y2="22"/>
+                                            <line x1="2" y1="12" x2="22" y2="12"/>
+                                            <line x1="2" y1="7" x2="7" y2="7"/>
+                                            <line x1="2" y1="17" x2="7" y2="17"/>
+                                            <line x1="17" y1="17" x2="22" y2="17"/>
+                                            <line x1="17" y1="7" x2="22" y2="7"/>
+                                        </svg>
+                                        <span class="vector-name">AbuseIPDB Logs</span>
+                                    </div>
+                                    <div class="breakdown-row-right">
+                                        <span class="vector-count" id="row-abuse-count">—</span>
+                                        <span class="vector-dot" id="row-abuse-dot"></span>
+                                        <svg class="row-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+                                    </div>
+                                </div>
+                                <div class="row-detail-panel" id="abuse-details">
+                                    <div class="details-panel-inner" id="abuse-body"></div>
+                                </div>
+
+                                <!-- AI Reasoning Row -->
+                                <div class="breakdown-row" onclick="toggleDetailCard('ai-details')">
+                                    <div class="breakdown-row-left">
+                                        <svg class="vector-icon color-ai" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <circle cx="12" cy="12" r="10"/>
+                                            <path d="M8 14s1.5 2 4 2 4-2 4-2"/>
+                                            <line x1="9" y1="9" x2="9.01" y2="9"/>
+                                            <line x1="15" y1="9" x2="15.01" y2="9"/>
+                                        </svg>
+                                        <span class="vector-name">AI Agent Reasoning</span>
+                                    </div>
+                                    <div class="breakdown-row-right">
+                                        <span class="vector-count" id="row-ai-count">—</span>
+                                        <span class="vector-dot" id="row-ai-dot"></span>
+                                        <svg class="row-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+                                    </div>
+                                </div>
+                                <div class="row-detail-panel" id="ai-details">
+                                    <div class="details-panel-inner" id="ai-body"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Right: Detection Flow -->
+                        <div class="dashboard-column">
+                            <h2 class="section-title-premium">Pipeline Timeline</h2>
+                            <div class="timeline-container-premium">
+                                <div class="flow-timeline-premium" id="flow-timeline"></div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- URL Safe Preview Section (Separate Sandboxed Cloud Browser - Placed at Bottom) -->
+                <div id="url-preview-section" class="url-preview-card" style="margin-top: 32px;">
+                    <div class="url-preview-header">
+                        <div class="icon">🌐</div>
+                        <div>
+                            <h3>URL Safe Preview</h3>
+                            <p>Isolated cloud browser - no code runs on your device</p>
+                        </div>
+                        <span class="badge">Sandboxed</span>
+                    </div>
+                    <div class="url-input-row">
+                        <div class="url-input-wrap">
+                            <span>🔗</span>
+                            <input id="input-link-separate" type="text" placeholder="Paste suspicious URL here: https://paypal-secure-login.com/verify" />
+                            <button id="btn-clear-url">Clear</button>
+                        </div>
+                        <button id="btn-preview-url">🔍 Preview URL</button>
+                    </div>
+                    <div id="dummy-browser-container" class="dummy-browser-container empty">
+                        <div class="empty-state">Paste a URL above and click Preview to see safe screenshot</div>
+                    </div>
+                </div>
+            </main>
+
+            <!-- Sticky Full Width Footer -->
+            <footer class="footer">
+                <div class="container footer-inner">
+                    <span>PhishGuard AI</span><span>·</span>
+                    <span>Engineered threat detection dashboard</span><span>·</span>
+                    <span style="font-weight: 600; color: var(--accent);">Developed by Team BYTE-BULDERS</span>
+                </div>
+            </footer>
+        </div>
+    </div>
+
+    <script src="js/dummy-browser.js"></script>
+    <script src="js/fraud-tips.js"></script>
+    <script src="js/app.js"></script>
+    <script src="js/threat-meter.js"></script>
+    <script src="js/chat-widget.js"></script>
+    <script src="js/effects.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+    <script src="js/photo-scan.js"></script>
+</body>
+</html>

@@ -1,0 +1,16 @@
+backend
+*.faiss
+*.pkl
+*.h5
+*.joblib
+*.model
+venv
+.venv
+__pycache__
+*.pycache
+.mypy_cache
+.pytest_cache
+.git
+.env
+node_modules
+instance

@@ -1,0 +1,17 @@
+node_modules
+frontend/dist
+frontend/node_modules
+__pycache__
+*.pycache
+*.pkl
+*.db
+phishguard.db
+.env
+backend/.env
+venv/
+.venv/
+backend/app/rag/vector_store/
+backend/data/
+frontend-vanilla-backup/
+*.faiss
+.DS_Store

@@ -1,0 +1,269 @@
+/* ==========================================================================
+   PhishGuard AI — Fraud Tips & Risk Disclaimer Styles
+   ========================================================================== */
+
+#pgFraudWrapper {
+    margin-top: 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
+    width: 100%;
+}
+
+#pgFraudContainer {
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+    width: 100%;
+}
+
+/* --- Disclaimer Card (Frosted Glass) --- */
+.pg-disclaimer-card {
+    position: relative;
+    padding: 24px;
+    margin-bottom: 4px;
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.72);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    box-shadow: 0 8px 32px rgba(15, 23, 42, 0.06);
+    border: 1px solid rgba(226, 232, 240, 0.8);
+    transition: all 0.3s ease;
+}
+
+body.dark-mode .pg-disclaimer-card {
+    background: rgba(15, 23, 42, 0.72);
+    border-color: rgba(255, 255, 255, 0.1);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+/* Border-left risk indicators */
+.pg-disclaimer-card.high {
+    border-left: 4px solid #DC2626 !important;
+}
+
+.pg-disclaimer-card.medium {
+    border-left: 4px solid #D97706 !important;
+}
+
+.pg-disclaimer-card.low {
+    border-left: 4px solid #16A34A !important;
+}
+
+.pg-disclaimer-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+}
+
+.pg-disclaimer-title {
+    font-family: 'Inter', -apple-system, system-ui, sans-serif;
+    font-size: 16px;
+    font-weight: 700;
+    line-height: 1.3;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.pg-disclaimer-card.high .pg-disclaimer-title {
+    color: #DC2626;
+}
+
+.pg-disclaimer-card.medium .pg-disclaimer-title {
+    color: #D97706;
+}
+
+.pg-disclaimer-card.low .pg-disclaimer-title {
+    color: #16A34A;
+}
+
+.pg-disclaimer-text {
+    font-family: 'Inter', -apple-system, system-ui, sans-serif;
+    font-size: 14.5px;
+    font-weight: 500;
+    line-height: 1.6;
+    color: #334155;
+    margin-bottom: 16px;
+}
+
+body.dark-mode .pg-disclaimer-text {
+    color: #CBD5E1;
+}
+
+.pg-disclaimer-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.pg-reason-pill {
+    font-family: 'Inter', -apple-system, system-ui, sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 4px 12px;
+    border-radius: 20px;
+    background: rgba(220, 38, 38, 0.08);
+    color: #DC2626;
+    border: 1px solid rgba(220, 38, 38, 0.2);
+}
+
+.pg-disclaimer-card.medium .pg-reason-pill {
+    background: rgba(217, 119, 6, 0.08);
+    color: #D97706;
+    border-color: rgba(217, 119, 6, 0.2);
+}
+
+.pg-disclaimer-card.low .pg-reason-pill {
+    background: rgba(22, 163, 74, 0.08);
+    color: #16A34A;
+    border-color: rgba(22, 163, 74, 0.2);
+}
+
+.pg-disclaimer-note {
+    font-family: 'Inter', -apple-system, system-ui, sans-serif;
+    font-size: 11.5px;
+    color: #64748B;
+    font-style: italic;
+}
+
+body.dark-mode .pg-disclaimer-note {
+    color: #94A3B8;
+}
+
+/* --- Fraud Prevention Tips Card --- */
+.pg-tips-card {
+    background: #FFFFFF;
+    border: 1px solid #E2E8F0;
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: 0 4px 20px rgba(15, 23, 42, 0.04);
+    transition: all 0.3s ease;
+}
+
+body.dark-mode .pg-tips-card {
+    background: rgba(30, 41, 59, 0.75);
+    border-color: rgba(255, 255, 255, 0.1);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.pg-tips-title {
+    font-family: 'Inter', -apple-system, system-ui, sans-serif;
+    font-size: 18px;
+    font-weight: 700;
+    color: #0F172A;
+    margin-bottom: 16px;
+    letter-spacing: -0.01em;
+}
+
+body.dark-mode .pg-tips-title {
+    color: #F8FAFC;
+}
+
+.pg-tips-list {
+    display: flex;
+    flex-direction: column;
+}
+
+.pg-tip-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 12px 0;
+    border-bottom: 1px solid #F1F5F9;
+}
+
+body.dark-mode .pg-tip-row {
+    border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+
+.pg-tip-row:last-child {
+    border-bottom: none;
+}
+
+.pg-tip-icon {
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+    border-radius: 50%;
+    background-color: #EFF6FF;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+body.dark-mode .pg-tip-icon {
+    background-color: rgba(37, 99, 235, 0.15);
+}
+
+.pg-tip-icon svg {
+    stroke: #2563EB;
+    width: 18px;
+    height: 18px;
+}
+
+body.dark-mode .pg-tip-icon svg {
+    stroke: #38BDF8;
+}
+
+.pg-tip-text {
+    font-family: 'Inter', -apple-system, system-ui, sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    color: #334155;
+    line-height: 1.5;
+}
+
+body.dark-mode .pg-tip-text {
+    color: #E2E8F0;
+}
+
+/* Extra Tips Expansion Container */
+#pgExtraTips {
+    max-height: 0;
+    opacity: 0;
+    overflow: hidden;
+    transition: max-height 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease;
+}
+
+#pgExtraTips.open {
+    max-height: 400px;
+    opacity: 1;
+}
+
+.pg-tips-btn {
+    width: 100%;
+    height: 44px;
+    margin-top: 16px;
+    border: 1.5px solid #2563EB;
+    color: #2563EB;
+    background-color: #FFFFFF;
+    border-radius: 10px;
+    font-family: 'Inter', -apple-system, system-ui, sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: all 0.2s ease;
+}
+
+.pg-tips-btn:hover {
+    background-color: #EFF6FF;
+}
+
+body.dark-mode .pg-tips-btn {
+    border-color: #38BDF8;
+    color: #38BDF8;
+    background-color: transparent;
+}
+
+body.dark-mode .pg-tips-btn:hover {
+    background-color: rgba(56, 189, 248, 0.12);
+}
