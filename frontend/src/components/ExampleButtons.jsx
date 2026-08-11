@@ -17,6 +17,11 @@ export const ExampleButtons = ({ onSelectExample }) => {
       text: 'SBI Alert: Your account 4829XX will be suspended today. Please update PAN immediately at http://sbi-verifiy.xyz/stop',
     },
     {
+      key: 'try_phone',
+      label: '📱 Try Phone Scam',
+      text: '+91 98765 43210',
+    },
+    {
       key: 'try_email',
       label: t('try_email'),
       text: 'From: support@security-update-service.top\nSubject: Account Verification Required\nDear Customer, We detected an unauthorized sign-in from IP 185.220.101.5. Click here to confirm your credentials.',

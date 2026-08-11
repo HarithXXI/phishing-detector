@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import { Plus, X, Search, Image as ImageIcon, Loader2, Sparkles } from 'lucide-react';
 import { createWorker } from 'tesseract.js';
 import { useTranslation } from 'react-i18next';
+import { detectInputType } from '../utils/detectType';
 
 export const ThreatInput = ({ onAnalyze, loading }) => {
   const { t } = useTranslation();
@@ -13,6 +14,7 @@ export const ThreatInput = ({ onAnalyze, loading }) => {
   const [fileError, setFileError] = useState('');
 
   const fileInputRef = useRef(null);
+  const inputType = detectInputType(inputText);
 
   const handleFileSelect = (file) => {
     setFileError('');
@@ -67,7 +69,7 @@ export const ThreatInput = ({ onAnalyze, loading }) => {
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!inputText.trim() && !selectedFile) return;
-    onAnalyze(inputText, selectedFile);
+    onAnalyze(inputText, selectedFile, inputType);
   };
 
   const handleDragOver = (e) => {
@@ -98,10 +100,17 @@ export const ThreatInput = ({ onAnalyze, loading }) => {
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
         >
+          {/* Subtle Smart Input Detector Badge inside top-right corner */}
+          {inputText.trim() && (
+            <div className="absolute top-3 right-3 text-xs px-2.5 py-1 rounded-full bg-[var(--bg-card)] border border-[var(--border)] text-[var(--text-muted)] flex items-center gap-1.5 shadow-sm font-semibold pointer-events-none z-20">
+              {inputType === 'phone' ? '📱 Phone detected' : '🛡️ Threat scan'}
+            </div>
+          )}
+
           <textarea
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
-            placeholder={t('placeholder')}
+            placeholder="Paste suspicious link, email, message or phone number..."
             spellCheck="false"
             rows={5}
             className="w-full min-h-[160px] p-5 pb-14 bg-transparent border-0 outline-none text-[var(--text-main)] placeholder-[var(--text-muted)] text-base leading-relaxed resize-y"
@@ -109,7 +118,6 @@ export const ThreatInput = ({ onAnalyze, loading }) => {
 
           {/* Integrated Upload (+) & Attachment Bar at Bottom-Left */}
           <div className="absolute left-3 bottom-3 flex items-center space-x-3.5 z-20">
-            {/* Hidden native input */}
             <input
               type="file"
               ref={fileInputRef}
@@ -118,7 +126,6 @@ export const ThreatInput = ({ onAnalyze, loading }) => {
               onChange={(e) => e.target.files && handleFileSelect(e.target.files[0])}
             />
 
-            {/* Merged Icon-only (+) Add Photo Button */}
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
@@ -128,7 +135,6 @@ export const ThreatInput = ({ onAnalyze, loading }) => {
               <Plus className="w-5 h-5" />
             </button>
 
-            {/* Inline Thumbnail Attachment Chip (36x36 Icon-Only, Filename Hidden) */}
             {selectedFile && previewUrl && (
               <div className="relative group flex items-center">
                 <div className="relative w-9 h-9 rounded-lg overflow-hidden border border-cyan-400/50 bg-slate-800 shadow-md">
@@ -144,7 +150,6 @@ export const ThreatInput = ({ onAnalyze, loading }) => {
                   )}
                 </div>
 
-                {/* Tiny Red (X) Remove Button */}
                 <button
                   type="button"
                   onClick={removeFile}
@@ -172,7 +177,7 @@ export const ThreatInput = ({ onAnalyze, loading }) => {
               ) : (
                 <>
                   <Sparkles className="w-4 h-4 text-cyan-200" />
-                  <span>{t('analyze_threat')}</span>
+                  <span>{inputType === 'phone' ? 'Lookup number' : t('analyze_threat')}</span>
                 </>
               )}
             </button>
@@ -180,7 +185,6 @@ export const ThreatInput = ({ onAnalyze, loading }) => {
         </div>
       </form>
 
-      {/* Error / Validation Feedback */}
       {fileError && (
         <p className="mt-2 text-xs text-rose-400 flex items-center space-x-1">
           <X className="w-3.5 h-3.5" />
