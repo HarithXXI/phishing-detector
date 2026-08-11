@@ -29,28 +29,57 @@ def calculate_composite_score(
     ip_dict = ip_res or kwargs.get("ip_result") or {}
     harvest_dict = harvest_res or kwargs.get("harvest_result") or {}
     wfuzz_dict = wfuzz_res or kwargs.get("wfuzz_result") or {}
-    ml_dict = ml_data or ml_result or {}
 
-    rule_score = len(rule_risks_list) * 20
-    url_score = len(url_risks_list) * 20
-    vt_score = vt_dict.get('malicious', 0) * 10
-    abuse_score = (abuse_dict.get('risk_score', 0) or abuse_dict.get('abuseConfidenceScore', 0)) // 2
-    ai_score = 25 if ai_dict.get('is_phishing') else 0
-    whois_score = whois_dict.get('risk_score', whois_dict.get('score', 0)) if isinstance(whois_dict, dict) else 0
-    dns_score = dns_dict.get('risk', 0) if isinstance(dns_dict, dict) else 0
-    ip_score = ip_dict.get('risk', 0) if isinstance(ip_dict, dict) else 0
-    harvest_score = harvest_dict.get('risk', 0) if isinstance(harvest_dict, dict) else 0
-    wfuzz_score = wfuzz_dict.get('risk', 0) if isinstance(wfuzz_dict, dict) else 0
+    rule_raw = int(len(rule_risks_list) * 20)
+    url_raw = int(len(url_risks_list) * 20)
+    vt_raw = int(vt_dict.get('malicious', 0) * 10)
+    abuse_raw = int((abuse_dict.get('risk_score', 0) or abuse_dict.get('abuseConfidenceScore', 0)) // 2)
+    ai_raw = 25 if ai_dict.get('is_phishing') else 0
+    whois_raw = int(whois_dict.get('risk_score', whois_dict.get('score', 0))) if isinstance(whois_dict, dict) else 0
+    dns_raw = int(dns_dict.get('risk', 0)) if isinstance(dns_dict, dict) else 0
+    ip_raw = int(ip_dict.get('risk', 0)) if isinstance(ip_dict, dict) else 0
+    harvest_raw = int(harvest_dict.get('risk', 0)) if isinstance(harvest_dict, dict) else 0
+    wfuzz_raw = int(wfuzz_dict.get('risk', 0)) if isinstance(wfuzz_dict, dict) else 0
 
-    total = min(100, rule_score + url_score + vt_score + abuse_score + ai_score + whois_score + dns_score + ip_score + harvest_score + wfuzz_score)
+    raw_breakdown: Dict[str, int] = {
+        "rule": rule_raw,
+        "url": url_raw,
+        "vt": vt_raw,
+        "abuse": abuse_raw,
+        "ai": ai_raw,
+        "whois": whois_raw,
+        "dns": dns_raw,
+        "ip": ip_raw,
+        "harvester": harvest_raw,
+        "wfuzz": wfuzz_raw
+    }
 
-    if url_score > 0:
+    raw_sum: int = sum(int(v) for v in raw_breakdown.values())
+
+    if raw_sum == 0:
+        total = 0
+        final_breakdown = {k: 0 for k in raw_breakdown}
+    elif raw_sum <= 100:
+        total = raw_sum
+        final_breakdown = dict(raw_breakdown)
+    else:
+        total = 100
+        scaled: Dict[str, int] = {k: int(round((v / raw_sum) * 100)) for k, v in raw_breakdown.items()}
+        diff = 100 - sum(scaled.values())
+        if diff != 0:
+            max_key = max(list(scaled.keys()), key=lambda k: scaled[k])
+            scaled[max_key] += diff
+        final_breakdown = scaled
+
+    final_breakdown["total"] = total
+
+    if url_raw > 0:
         vector = "Malicious URL"
-    elif rule_score > 15:
+    elif rule_raw > 15:
         vector = "Phishing Keywords"
-    elif dns_score >= 20:
+    elif dns_raw >= 20:
         vector = "Suspicious Domain Infrastructure"
-    elif ip_score > 10:
+    elif ip_raw > 10:
         vector = "Hosting/Proxy Abuse"
     else:
         vector = "Suspicious Content"
@@ -62,17 +91,5 @@ def calculate_composite_score(
         "risk_level": risk_level,
         "vector": vector,
         "attack_type": vector.lower().replace(" ", "_"),
-        "breakdown": {
-            "total": total,
-            "rule": rule_score,
-            "url": url_score,
-            "vt": vt_score,
-            "abuse": abuse_score,
-            "ai": ai_score,
-            "whois": whois_score,
-            "dns": dns_score,
-            "ip": ip_score,
-            "harvester": harvest_score,
-            "wfuzz": wfuzz_score
-        }
+        "breakdown": final_breakdown
     }

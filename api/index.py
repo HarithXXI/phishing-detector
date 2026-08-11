@@ -32,7 +32,7 @@ class AnalyzeRequest(BaseModel):
 async def analyze(payload: AnalyzeRequest):
     text = payload.text.strip()
     if not text:
-        return {"error": "Empty"}
+        return {"error": "Empty input"}
 
     rule_risks = check_rules(text)
     url_risks, urls = check_url_heuristics(text)
@@ -95,19 +95,32 @@ async def analyze(payload: AnalyzeRequest):
     abuse_dict: dict = abuse_res if isinstance(abuse_res, dict) else {"risk_score": 0}
     ai_dict: dict = ai_res if isinstance(ai_res, dict) else {"is_phishing": False, "risk_level": "LOW"}
     whois_dict: dict = whois_res if isinstance(whois_res, dict) else {}
+    dns_dict: dict = dns_res if isinstance(dns_res, dict) else {}
+    ip_dict: dict = ip_res if isinstance(ip_res, dict) else {}
+    harvest_dict: dict = harvest_res if isinstance(harvest_res, dict) else {}
+    wfuzz_dict: dict = wfuzz_res if isinstance(wfuzz_res, dict) else {}
 
-    dns_risk = dns_res.get("risk", 0) if isinstance(dns_res, dict) else 0
-    ip_risk = ip_res.get("risk", 0) if isinstance(ip_res, dict) else 0
-    harvest_risk = harvest_res.get("risk", 0) if isinstance(harvest_res, dict) else 0
-    wfuzz_risk = wfuzz_res.get("risk", 0) if isinstance(wfuzz_res, dict) else 0
+    base_scoring = calculate_composite_score(
+        rule_risks=rule_risks,
+        url_risks=url_risks,
+        vt_res=vt_dict,
+        abuse_res=abuse_dict,
+        ai_res=ai_dict,
+        whois_res=whois_dict,
+        dns_res=dns_dict,
+        ip_res=ip_dict,
+        harvest_res=harvest_dict,
+        wfuzz_res=wfuzz_dict
+    )
 
-    osint_score = dns_risk + ip_risk + harvest_risk + wfuzz_risk
-    base_scoring = calculate_composite_score(rule_risks, url_risks, vt_dict, abuse_dict, ai_dict, whois_dict, {"ml_score": 0})
-    final_score = min(100, base_scoring["score"] + osint_score)
+    final_score = base_scoring["score"]
+    vector = base_scoring.get("vector", "Suspicious Content")
 
     return {
         "score": final_score,
-        "risk_level": "CRITICAL" if final_score >= 75 else "HIGH" if final_score >= 50 else "MEDIUM" if final_score >= 25 else "LOW",
+        "risk_level": base_scoring.get("risk_level", "LOW"),
+        "vector": vector,
+        "attack_type": base_scoring.get("attack_type", "suspicious_content"),
         "risks": rule_risks + url_risks,
         "whois": whois_res,
         "virustotal": vt_res,
@@ -119,7 +132,7 @@ async def analyze(payload: AnalyzeRequest):
             "phone": phone_res,
             "harvester": harvest_res,
             "wfuzz": wfuzz_res,
-            "osint_score": osint_score
+            "osint_score": dns_dict.get("risk", 0) + ip_dict.get("risk", 0) + harvest_dict.get("risk", 0) + wfuzz_dict.get("risk", 0)
         },
         "breakdown": base_scoring["breakdown"],
         "urls_found": urls
@@ -157,4 +170,4 @@ async def phone_bulk(payload: dict):
 
 @app.get("/api")
 def health():
-    return {"status": "v3.1 OSINT Vercel-only"}
+    return {"status": "v3.1 OSINT Engine Online"}
