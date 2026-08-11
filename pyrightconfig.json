@@ -1,6 +1,8 @@
 {
   "extraPaths": [
     "api",
-    "api/services"
+    "api/services",
+    "backend",
+    "backend/app"
   ]
 }
