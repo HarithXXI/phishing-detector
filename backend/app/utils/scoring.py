@@ -1,28 +1,35 @@
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 
 def calculate_composite_score(
-    rule_risks: list = None,
-    url_risks: list = None,
-    vt_res: dict = None,
-    abuse_res: dict = None,
-    ai_res: dict = None,
-    whois_res: Optional[dict] = None,
-    ml_data: Optional[dict] = None,
-    dns_res: Optional[dict] = None,
-    ip_res: Optional[dict] = None,
-    harvest_res: Optional[dict] = None,
-    wfuzz_res: Optional[dict] = None
-) -> dict:
+    rule_risks: Optional[List[Any]] = None,
+    url_risks: Optional[List[Any]] = None,
+    vt_res: Optional[Dict[Any, Any]] = None,
+    abuse_res: Optional[Dict[Any, Any]] = None,
+    ai_res: Optional[Dict[Any, Any]] = None,
+    whois_res: Optional[Dict[Any, Any]] = None,
+    ml_data: Optional[Dict[Any, Any]] = None,
+    dns_res: Optional[Dict[Any, Any]] = None,
+    ip_res: Optional[Dict[Any, Any]] = None,
+    harvest_res: Optional[Dict[Any, Any]] = None,
+    wfuzz_res: Optional[Dict[Any, Any]] = None,
+    vt_result: Optional[Dict[Any, Any]] = None,
+    abuse_result: Optional[Dict[Any, Any]] = None,
+    ai_result: Optional[Dict[Any, Any]] = None,
+    whois_result: Optional[Dict[Any, Any]] = None,
+    ml_result: Optional[Dict[Any, Any]] = None,
+    **kwargs: Any
+) -> Dict[str, Any]:
     rule_risks_list = rule_risks or []
     url_risks_list = url_risks or []
-    vt_dict = vt_res or {}
-    abuse_dict = abuse_res or {}
-    ai_dict = ai_res or {}
-    whois_dict = whois_res or {}
-    dns_dict = dns_res or {}
-    ip_dict = ip_res or {}
-    harvest_dict = harvest_res or {}
-    wfuzz_dict = wfuzz_res or {}
+    vt_dict = vt_res or vt_result or {}
+    abuse_dict = abuse_res or abuse_result or {}
+    ai_dict = ai_res or ai_result or {}
+    whois_dict = whois_res or whois_result or {}
+    dns_dict = dns_res or kwargs.get("dns_result") or {}
+    ip_dict = ip_res or kwargs.get("ip_result") or {}
+    harvest_dict = harvest_res or kwargs.get("harvest_result") or {}
+    wfuzz_dict = wfuzz_res or kwargs.get("wfuzz_result") or {}
+    ml_dict = ml_data or ml_result or {}
 
     rule_score = len(rule_risks_list) * 20
     url_score = len(url_risks_list) * 20
