@@ -41,23 +41,44 @@ async def analyze(payload: AnalyzeRequest):
 
     whois_res = check_domain_age(target)
 
-    async def safe_vt():
+    async def safe_vt() -> dict:
         try:
-            return await asyncio.wait_for(check_virustotal(target), timeout=3)
+            res = await asyncio.wait_for(check_virustotal(target), timeout=3)
+            return res if isinstance(res, dict) else {"malicious": 0}
         except Exception:
             return {"malicious": 0}
 
-    async def safe_abuse():
+    async def safe_abuse() -> dict:
         try:
-            return await asyncio.wait_for(check_abuseipdb(text), timeout=3)
+            res = await asyncio.wait_for(check_abuseipdb(text), timeout=3)
+            return res if isinstance(res, dict) else {"risk_score": 0}
         except Exception:
             return {"risk_score": 0}
 
-    async def safe_ai():
+    async def safe_ai() -> dict:
         try:
-            return await asyncio.wait_for(analyze_with_gemini(text), timeout=4)
+            res = await asyncio.wait_for(analyze_with_gemini(text), timeout=4)
+            return res if isinstance(res, dict) else {"is_phishing": False, "risk_level": "LOW"}
         except Exception:
             return {"is_phishing": False, "risk_level": "LOW"}
+
+    async def safe_harvest() -> dict:
+        if "." in domain:
+            try:
+                res = await harvest_subdomains(domain)
+                return res if isinstance(res, dict) else {"risk": 0}
+            except Exception:
+                return {"risk": 0}
+        return {"risk": 0}
+
+    async def safe_wfuzz() -> dict:
+        if urls:
+            try:
+                res = await fuzz_phishing_paths(urls[0])
+                return res if isinstance(res, dict) else {"risk": 0}
+            except Exception:
+                return {"risk": 0}
+        return {"risk": 0}
 
     vt_res, abuse_res, ai_res, dns_res, ip_res, harvest_res, phone_res, wfuzz_res = await asyncio.gather(
         safe_vt(),
@@ -65,12 +86,17 @@ async def analyze(payload: AnalyzeRequest):
         safe_ai(),
         check_dns_full(domain),
         get_ip_details(target),
-        harvest_subdomains(domain) if "." in domain else asyncio.sleep(0, result={"risk": 0}),
+        safe_harvest(),
         check_phone_osint(text),
-        fuzz_phishing_paths(urls[0]) if urls else asyncio.sleep(0, result={"risk": 0})
+        safe_wfuzz()
     )
 
-    osint_score = dns_res.get("risk", 0) + ip_res.get("risk", 0) + harvest_res.get("risk", 0) + wfuzz_res.get("risk", 0)
+    dns_risk = dns_res.get("risk", 0) if isinstance(dns_res, dict) else 0
+    ip_risk = ip_res.get("risk", 0) if isinstance(ip_res, dict) else 0
+    harvest_risk = harvest_res.get("risk", 0) if isinstance(harvest_res, dict) else 0
+    wfuzz_risk = wfuzz_res.get("risk", 0) if isinstance(wfuzz_res, dict) else 0
+
+    osint_score = dns_risk + ip_risk + harvest_risk + wfuzz_risk
     base_scoring = calculate_composite_score(rule_risks, url_risks, vt_res, abuse_res, ai_res, whois_res, {"ml_score": 0})
     final_score = min(100, base_scoring["score"] + osint_score)
 

@@ -44,7 +44,7 @@ def train_model():
     target_col = "Result" if "Result" in df.columns else df.columns[-1]
 
     # Target variable mapping: Phishing = 1 (Result == -1), Legitimate = 0 (Result == 1)
-    X = df.drop(columns=[target_col])
+    X = df.drop(columns=[str(target_col)])
     y = df[target_col].apply(lambda v: 1 if v == -1 else 0)
 
     print(f"[ML Trainer] Feature columns count: {X.shape[1]}")
