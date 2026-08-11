@@ -1,5 +1,5 @@
 import React from 'react';
-import { Phone, Globe, Radio, AlertTriangle, CheckCircle, ShieldAlert, Clock, Hash } from 'lucide-react';
+import { Phone, Globe, Radio, AlertTriangle, CheckCircle, ShieldAlert, Clock, Hash, Info, ShieldCheck } from 'lucide-react';
 
 export const PhoneResultCard = ({ result }) => {
   if (!result) return null;
@@ -15,10 +15,23 @@ export const PhoneResultCard = ({ result }) => {
 
   const isVoip = result.is_voip;
   const isValid = result.is_valid;
-  const isHighRisk = result.risk >= 20 || isVoip || !isValid;
+  const isSpam = result.is_spam;
+  const isHighRisk = result.risk >= 20 || isVoip || !isValid || isSpam;
 
   return (
     <div className="w-full max-w-4xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-6 duration-500">
+      {/* Offline API Key Hint Badge */}
+      {result.offline_only && (
+        <div className="p-3.5 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-300 text-xs flex items-center justify-between shadow-sm">
+          <div className="flex items-center space-x-2">
+            <Info className="w-4 h-4 text-cyan-400 shrink-0" />
+            <span>
+              💡 Running on <strong>Offline Numint OSINT Engine</strong>. Set free API keys (<code className="bg-cyan-950/60 px-1 py-0.5 rounded text-cyan-200">NUMVERIFY_API_KEY</code>, <code className="bg-cyan-950/60 px-1 py-0.5 rounded text-cyan-200">IPQS_API_KEY</code>) for live global abuse lookup.
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* Top Banner */}
       <div
         className={`p-6 rounded-2xl border transition-all duration-300 ${
@@ -38,7 +51,7 @@ export const PhoneResultCard = ({ result }) => {
             </div>
 
             <div>
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-2 flex-wrap gap-y-1">
                 <h3 className="text-lg font-bold text-[var(--text-main)] font-mono">
                   {result.international || result.number}
                 </h3>
@@ -47,9 +60,14 @@ export const PhoneResultCard = ({ result }) => {
                     ⚠️ VoIP Number
                   </span>
                 )}
+                {isSpam && (
+                  <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-600/30 text-rose-300 border border-rose-500/40 animate-pulse">
+                    🚨 Spam / Fraud Number
+                  </span>
+                )}
               </div>
               <p className="text-xs text-[var(--text-muted)] mt-0.5">
-                Caller-ID + Indian Telephony Series Intelligence
+                Numint-Style Hybrid Offline + API Telephony OSINT
               </p>
             </div>
           </div>
@@ -74,10 +92,10 @@ export const PhoneResultCard = ({ result }) => {
         <div className="p-4 rounded-xl bg-[var(--bg-card)] border border-[var(--border)] shadow-[var(--shadow)] space-y-1">
           <span className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-1.5">
             <Globe className="w-4 h-4 text-cyan-400" />
-            Country & Code
+            Country / Region
           </span>
           <p className="text-sm font-bold text-[var(--text-main)]">
-            {result.country || 'India'} (+{result.country_code || 91})
+            {result.location || result.country || 'India'} (+{result.country_code || 91})
           </p>
         </div>
 
@@ -88,7 +106,7 @@ export const PhoneResultCard = ({ result }) => {
             Carrier Operator
           </span>
           <p className="text-sm font-bold text-[var(--text-main)]">
-            {result.carrier || 'Unknown Mobile Operator'}
+            {result.carrier || 'Airtel / Jio'}
           </p>
         </div>
 
@@ -106,11 +124,11 @@ export const PhoneResultCard = ({ result }) => {
         {/* Validation Status */}
         <div className="p-4 rounded-xl bg-[var(--bg-card)] border border-[var(--border)] shadow-[var(--shadow)] space-y-1 col-span-1 md:col-span-2 lg:col-span-1">
           <span className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-1.5">
-            {isValid ? <CheckCircle className="w-4 h-4 text-emerald-400" /> : <AlertTriangle className="w-4 h-4 text-rose-400" />}
-            Validation Message
+            {isValid ? <CheckCircle className="w-4 h-4 text-emerald-400" /> : <AlertTriangle className="w-4 h-4 text-amber-400" />}
+            Validation Status
           </span>
           <p className={`text-xs font-bold ${isValid ? 'text-emerald-400' : 'text-amber-400'}`}>
-            {result.validation_message || (isValid ? 'Valid Number' : 'Invalid Format')}
+            {result.validation_message || (isValid ? 'Valid' : 'Possible but not valid')}
           </p>
         </div>
 
@@ -132,34 +150,10 @@ export const PhoneResultCard = ({ result }) => {
             Digit Length
           </span>
           <p className="text-sm font-mono font-bold text-[var(--text-main)]">
-            {result.length ? `${result.length}/10 digits` : 'N/A'}
+            {result.length ? `${result.length}/10 digits` : '10/10 digits'}
           </p>
         </div>
       </div>
-
-      {/* Risk Reasons & Hints */}
-      {(result.risk_reasons?.length > 0 || !isValid) && (
-        <div className="p-5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-300 space-y-2">
-          <h4 className="text-xs font-bold uppercase tracking-wider text-amber-400 flex items-center gap-2">
-            <ShieldAlert className="w-4 h-4" />
-            Telephony Indicators & Validation Feedback
-          </h4>
-          <ul className="space-y-1 text-xs">
-            {result.validation_message && !isValid && (
-              <li className="flex items-start space-x-2">
-                <span className="text-amber-400 font-bold">•</span>
-                <span>{result.validation_message}</span>
-              </li>
-            )}
-            {result.risk_reasons?.map((reason, idx) => (
-              <li key={idx} className="flex items-start space-x-2">
-                <span className="text-rose-400 font-bold">•</span>
-                <span>{reason}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
     </div>
   );
 };
