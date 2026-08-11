@@ -1,7 +1,6 @@
 """
 WHOIS Domain Age Service for PhishGuard Engine
 100% Free - Uses python-whois library (NO API key required).
-Calculates domain registration age and flags newly registered domains (<30 days / <180 days).
 """
 
 import re
@@ -27,7 +26,6 @@ def extract_domain(url_or_domain: str) -> str:
         host = text.split("/")[0]
     
     host = host.split(":")[0]  # Remove port
-    # Remove leading www.
     if host.startswith("www."):
         host = host[4:]
     return host
@@ -54,11 +52,11 @@ def check_domain_age(domain_or_url: str) -> Dict[str, Any]:
         return fallback
 
     if whois is None:
-        print("[WHOIS Service] python-whois library not imported")
         return fallback
 
     try:
-        print(f"[WHOIS Service] Querying WHOIS for {domain}...")
+        import socket
+        socket.setdefaulttimeout(3.0)
         w = whois.whois(domain)
         creation_date = w.creation_date
 
@@ -74,7 +72,6 @@ def check_domain_age(domain_or_url: str) -> Dict[str, Any]:
         
         now = datetime.now(timezone.utc)
         age_days = (now - creation_date).days
-
         creation_iso = creation_date.strftime("%Y-%m-%d")
 
         if age_days < 30:
@@ -103,17 +100,12 @@ def check_domain_age(domain_or_url: str) -> Dict[str, Any]:
                 "age_days": age_days,
                 "creation_date": creation_iso,
                 "risk": "LOW",
-                "score": 10,
-                "reason": f"Domain established {age_days} days ago (created on {creation_iso})",
+                "score": 0,
+                "reason": f"Established domain ({age_days} days old, registered {creation_iso})",
                 "raw_whois_success": True
             }
 
     except Exception as e:
-        print(f"[WHOIS Lookup Exception for {domain}]: {e}")
-        fallback["reason"] = f"WHOIS hidden or restricted for {domain}"
-        return fallback
+        fallback["reason"] = f"WHOIS lookup failed for {domain}: {e}"
 
-
-if __name__ == "__main__":
-    res = check_domain_age("http://paypal-secure-login.co")
-    print("Test WHOIS output:", res)
+    return fallback

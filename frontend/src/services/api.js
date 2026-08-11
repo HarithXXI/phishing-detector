@@ -3,7 +3,7 @@ import axios from 'axios';
 const BASE = import.meta.env.VITE_API_URL || '';
 export const api = axios.create({
   baseURL: BASE,
-  timeout: 20000,
+  timeout: 35000,
 });
 
 export const analyzeThreat = async (text) => {
@@ -12,7 +12,8 @@ export const analyzeThreat = async (text) => {
     return response.data;
   } catch (error) {
     console.error('[API Error] analyzeThreat:', error);
-    throw new Error(error.response?.data?.error || 'Failed to analyze threat');
+    const errMsg = error.response?.data?.error || error.response?.data?.message || error.message || 'Failed to analyze threat';
+    throw new Error(errMsg);
   }
 };
 
