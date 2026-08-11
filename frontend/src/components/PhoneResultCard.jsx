@@ -1,5 +1,5 @@
 import React from 'react';
-import { Phone, Globe, Radio, AlertTriangle, CheckCircle, ShieldAlert, Clock } from 'lucide-react';
+import { Phone, Globe, Radio, AlertTriangle, CheckCircle, ShieldAlert, Clock, Hash } from 'lucide-react';
 
 export const PhoneResultCard = ({ result }) => {
   if (!result) return null;
@@ -14,7 +14,8 @@ export const PhoneResultCard = ({ result }) => {
   }
 
   const isVoip = result.is_voip;
-  const isHighRisk = result.risk >= 30 || isVoip;
+  const isValid = result.is_valid;
+  const isHighRisk = result.risk >= 20 || isVoip || !isValid;
 
   return (
     <div className="w-full max-w-4xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-6 duration-500">
@@ -48,7 +49,7 @@ export const PhoneResultCard = ({ result }) => {
                 )}
               </div>
               <p className="text-xs text-[var(--text-muted)] mt-0.5">
-                Caller-ID + numint OSINT Telephony Analysis
+                Caller-ID + Indian Telephony Series Intelligence
               </p>
             </div>
           </div>
@@ -76,7 +77,7 @@ export const PhoneResultCard = ({ result }) => {
             Country & Code
           </span>
           <p className="text-sm font-bold text-[var(--text-main)]">
-            {result.country || 'Unknown'} (+{result.country_code || 'N/A'})
+            {result.country || 'India'} (+{result.country_code || 91})
           </p>
         </div>
 
@@ -87,7 +88,7 @@ export const PhoneResultCard = ({ result }) => {
             Carrier Operator
           </span>
           <p className="text-sm font-bold text-[var(--text-main)]">
-            {result.carrier || 'Unknown'}
+            {result.carrier || 'Unknown Mobile Operator'}
           </p>
         </div>
 
@@ -98,18 +99,18 @@ export const PhoneResultCard = ({ result }) => {
             Line Type
           </span>
           <p className={`text-sm font-bold ${isVoip ? 'text-rose-400' : 'text-emerald-400'}`}>
-            {result.line_type || 'UNKNOWN'}
+            {result.line_type || 'MOBILE'}
           </p>
         </div>
 
         {/* Validation Status */}
-        <div className="p-4 rounded-xl bg-[var(--bg-card)] border border-[var(--border)] shadow-[var(--shadow)] space-y-1">
+        <div className="p-4 rounded-xl bg-[var(--bg-card)] border border-[var(--border)] shadow-[var(--shadow)] space-y-1 col-span-1 md:col-span-2 lg:col-span-1">
           <span className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-1.5">
-            {result.is_valid ? <CheckCircle className="w-4 h-4 text-emerald-400" /> : <AlertTriangle className="w-4 h-4 text-rose-400" />}
-            Validation
+            {isValid ? <CheckCircle className="w-4 h-4 text-emerald-400" /> : <AlertTriangle className="w-4 h-4 text-rose-400" />}
+            Validation Message
           </span>
-          <p className={`text-sm font-bold ${result.is_valid ? 'text-emerald-400' : 'text-rose-400'}`}>
-            {result.is_valid ? 'Valid Number' : 'Invalid Number'}
+          <p className={`text-xs font-bold ${isValid ? 'text-emerald-400' : 'text-amber-400'}`}>
+            {result.validation_message || (isValid ? 'Valid Number' : 'Invalid Format')}
           </p>
         </div>
 
@@ -120,30 +121,37 @@ export const PhoneResultCard = ({ result }) => {
             Timezone
           </span>
           <p className="text-sm font-bold text-[var(--text-main)] truncate">
-            {result.timezones?.length ? result.timezones.join(', ') : 'Unknown'}
+            {result.timezones?.length ? result.timezones.join(', ') : 'Asia/Kolkata'}
           </p>
         </div>
 
-        {/* National Format */}
+        {/* Length */}
         <div className="p-4 rounded-xl bg-[var(--bg-card)] border border-[var(--border)] shadow-[var(--shadow)] space-y-1">
-          <span className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">
-            National Format
+          <span className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-1.5">
+            <Hash className="w-4 h-4 text-cyan-400" />
+            Digit Length
           </span>
           <p className="text-sm font-mono font-bold text-[var(--text-main)]">
-            {result.national || 'N/A'}
+            {result.length ? `${result.length}/10 digits` : 'N/A'}
           </p>
         </div>
       </div>
 
-      {/* Risk Reasons */}
-      {result.risk_reasons?.length > 0 && (
-        <div className="p-5 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-300 space-y-2">
-          <h4 className="text-xs font-bold uppercase tracking-wider text-rose-400 flex items-center gap-2">
+      {/* Risk Reasons & Hints */}
+      {(result.risk_reasons?.length > 0 || !isValid) && (
+        <div className="p-5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-300 space-y-2">
+          <h4 className="text-xs font-bold uppercase tracking-wider text-amber-400 flex items-center gap-2">
             <ShieldAlert className="w-4 h-4" />
-            Identified Telephony Risk Indicators
+            Telephony Indicators & Validation Feedback
           </h4>
           <ul className="space-y-1 text-xs">
-            {result.risk_reasons.map((reason, idx) => (
+            {result.validation_message && !isValid && (
+              <li className="flex items-start space-x-2">
+                <span className="text-amber-400 font-bold">•</span>
+                <span>{result.validation_message}</span>
+              </li>
+            )}
+            {result.risk_reasons?.map((reason, idx) => (
               <li key={idx} className="flex items-start space-x-2">
                 <span className="text-rose-400 font-bold">•</span>
                 <span>{reason}</span>
