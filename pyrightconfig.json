@@ -3,6 +3,8 @@
     "api",
     "api/services",
     "backend",
-    "backend/app"
-  ]
+    "backend/app",
+    "backend/venv/Lib/site-packages"
+  ],
+  "reportMissingImports": false
 }
