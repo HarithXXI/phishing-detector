@@ -1,10 +1,26 @@
 {
+  "executionEnvironments": [
+    {
+      "root": "api",
+      "extraPaths": [
+        "api",
+        "api/services"
+      ]
+    },
+    {
+      "root": "backend",
+      "extraPaths": [
+        "backend",
+        "backend/app"
+      ]
+    }
+  ],
   "extraPaths": [
     "api",
     "api/services",
     "backend",
-    "backend/app",
-    "backend/venv/Lib/site-packages"
+    "backend/app"
   ],
-  "reportMissingImports": false
+  "reportMissingImports": "none",
+  "reportMissingModuleSource": "none"
 }
