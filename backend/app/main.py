@@ -10,6 +10,7 @@ from app.routes.analyze import router as analyze_router
 from app.routes.chat import router as chat_router
 from app.routes.preview import router as preview_router
 from app.routes.screenshot import router as screenshot_router
+from app.routes.phone import router as phone_router
 
 from fastapi.responses import FileResponse, JSONResponse
 
@@ -57,6 +58,8 @@ def create_app() -> FastAPI:
     app.include_router(preview_router, prefix="/api")
     app.include_router(screenshot_router)
     app.include_router(screenshot_router, prefix="/api")
+    app.include_router(phone_router)
+    app.include_router(phone_router, prefix="/api")
 
     @app.get("/health", tags=["Health"])
     async def health_check():

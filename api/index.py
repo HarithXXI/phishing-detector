@@ -109,6 +109,21 @@ async def preview(url: str):
         return r.json()
 
 
+@app.post("/api/phone-intel")
+async def phone_intel(payload: dict):
+    from services.phone_osint_service import check_phone_osint_detailed
+    phone = payload.get("phone", "")
+    return await check_phone_osint_detailed(phone)
+
+
+@app.post("/api/phone-bulk")
+async def phone_bulk(payload: dict):
+    from services.phone_osint_service import check_phone_osint
+    text = payload.get("text", "")
+    results = await check_phone_osint(text)
+    return {"phones": results, "count": len(results)}
+
+
 @app.get("/api")
 def health():
     return {"status": "v3.1 OSINT Vercel-only"}
