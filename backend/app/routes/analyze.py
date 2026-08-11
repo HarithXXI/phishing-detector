@@ -23,6 +23,28 @@ from app.services.ml_service import predict_ml
 from app.database import get_cached_scan, save_scan, get_recent_scans
 from app.utils.scoring import calculate_composite_score
 
+# Optional OSINT services — gracefully degraded if not installed
+try:
+    from app.services.dns_checker_service import check_dns
+except ImportError:
+    async def check_dns(domain: str) -> dict:  # type: ignore[misc]
+        return {}
+try:
+    from app.services.ip_detail_service import get_ip_details
+except ImportError:
+    async def get_ip_details(target: str) -> dict:  # type: ignore[misc]
+        return {}
+try:
+    from app.services.harvester_service import run_harvester
+except ImportError:
+    async def run_harvester(domain: str) -> dict:  # type: ignore[misc]
+        return {}
+try:
+    from app.services.wfuzz_service import run_wfuzz
+except ImportError:
+    async def run_wfuzz(url: str) -> dict:  # type: ignore[misc]
+        return {}
+
 router = APIRouter(tags=["Analysis"])
 
 
@@ -114,8 +136,13 @@ async def analyze_input(payload: AnalyzeRequest):
         "model": ml_res.get("model"),
     })
 
-    # ── Layer 5 & 6: Threat Intel + AI (concurrent in parallel) ──
+    # ── Layers 5-10: Threat Intel + AI + OSINT (all concurrent) ──
     extracted_ips = _extract_ips(text)
+    target_for_osint = (
+        re.sub(r'^https?://', '', extracted_urls[0]).split('/')[0]
+        if extracted_urls else
+        (text.strip() if '.' in text and ' ' not in text and len(text) < 100 else '')
+    )
 
     async def _safe_vt() -> dict:
         try:
@@ -161,38 +188,71 @@ async def analyze_input(payload: AnalyzeRequest):
                 "error": f"Gemini API error: {exc}",
             }
 
-    vt_result, abuse_result, ai_result = await asyncio.gather(
-        _safe_vt(), _safe_abuse(), _safe_ai()
+    async def _safe_dns() -> dict:
+        if not target_for_osint:
+            return {}
+        try:
+            return await asyncio.wait_for(check_dns(target_for_osint), timeout=6.0)
+        except Exception as exc:
+            log.warning("[DNS] %s", exc)
+            return {}
+
+    async def _safe_ip() -> dict:
+        ip_target = extracted_ips[0] if extracted_ips else target_for_osint
+        if not ip_target:
+            return {}
+        try:
+            return await asyncio.wait_for(get_ip_details(ip_target), timeout=6.0)
+        except Exception as exc:
+            log.warning("[IP] %s", exc)
+            return {}
+
+    async def _safe_harvest() -> dict:
+        if not target_for_osint:
+            return {}
+        try:
+            return await asyncio.wait_for(run_harvester(target_for_osint), timeout=8.0)
+        except Exception as exc:
+            log.warning("[Harvester] %s", exc)
+            return {}
+
+    async def _safe_wfuzz() -> dict:
+        target_url = extracted_urls[0] if extracted_urls else ''
+        if not target_url:
+            return {}
+        try:
+            return await asyncio.wait_for(run_wfuzz(target_url), timeout=8.0)
+        except Exception as exc:
+            log.warning("[Wfuzz] %s", exc)
+            return {}
+
+    vt_result, abuse_result, ai_result, dns_result, ip_result, harvester_result, wfuzz_result = await asyncio.gather(
+        _safe_vt(), _safe_abuse(), _safe_ai(),
+        _safe_dns(), _safe_ip(), _safe_harvest(), _safe_wfuzz()
     )
 
-    detection_flow.append({
-        "layer": "Threat Intelligence",
-        "status": "completed",
-        "virustotal": vt_result,
-        "abuseipdb": abuse_result,
-    })
 
-    detection_flow.append({
-        "layer": "AI Reasoning (Gemini)",
-        "status": "completed",
-        "is_phishing": ai_result.get("is_phishing", False),
-    })
-
-    # ── Scoring Calculation ──
+    # ── Scoring Calculation (all 10 layers) ──
     scoring = calculate_composite_score(
         rule_risks=rule_risks,
         url_risks=url_risks,
-        vt_result=vt_result,
-        abuse_result=abuse_result,
-        ai_result=ai_result,
-        whois_result=whois_res,
-        ml_result=ml_res,
+        vt_res=vt_result,
+        abuse_res=abuse_result,
+        ai_res=ai_result,
+        whois_res=whois_res,
+        ml_data=ml_res,
+        dns_res=dns_result,
+        ip_res=ip_result,
+        harvest_res=harvester_result,
+        wfuzz_res=wfuzz_result,
     )
 
-    # ── Attack Vector Classification ──
+    # ── Attack Type (legacy smishing/brand classification) ──
     raw_ai_type = (ai_result.get("attack_type") or "").lower()
     text_low = text.lower()
-    all_risks_text = " ".join(rule_risks + url_risks).lower()
+    all_risks_text = " ".join(
+        [(r if isinstance(r, str) else r.get('rule', '')) for r in rule_risks + url_risks]
+    ).lower()
 
     if scoring["score"] == 0 and not rule_risks and not url_risks:
         final_attack_type = "clean"
@@ -209,12 +269,27 @@ async def analyze_input(payload: AnalyzeRequest):
     else:
         final_attack_type = "suspicious_link" if extracted_urls else "generic_phishing"
 
+    detection_flow.append({
+        "layer": "Threat Intelligence",
+        "status": "completed",
+        "virustotal": vt_result,
+        "abuseipdb": abuse_result,
+    })
+    detection_flow.append({
+        "layer": "AI Reasoning (Gemini)",
+        "status": "completed",
+        "is_phishing": ai_result.get("is_phishing", False),
+    })
+
     response_payload = {
         "score": scoring["score"],
+        "risk_score": scoring["score"],
         "composite_score": scoring["score"],
-        "risk_level": scoring["risk_level"],
-        "threat_level": scoring["risk_level"],
+        "risk_level": scoring["level"],
+        "threat_level": scoring["level"],
+        "attack_vector": scoring["vector"],
         "attack_type": final_attack_type,
+        "dns_status": scoring["dns_status"],
         "risks": rule_risks + url_risks,
         "risk_factors": rule_risks + url_risks,
         "breakdown": scoring["breakdown"],
@@ -224,6 +299,10 @@ async def analyze_input(payload: AnalyzeRequest):
         "ml_model": ml_res,
         "virustotal": vt_result,
         "abuseipdb": abuse_result,
+        "dns": dns_result,
+        "ip_details": ip_result,
+        "harvester": harvester_result,
+        "wfuzz": wfuzz_result,
         "ai_result": {
             "is_phishing": ai_result.get("is_phishing", False),
             "risk_level": ai_result.get("risk_level", "LOW"),

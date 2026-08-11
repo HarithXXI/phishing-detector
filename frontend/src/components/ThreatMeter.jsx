@@ -10,7 +10,19 @@ export const ThreatMeter = ({ score = 0, riskLevel = 'LOW' }) => {
   const needleRotation = -90 + (normalizedScore / 100) * 180;
 
   const getStatusColor = () => {
-    if (normalizedScore >= 65 || riskLevel === 'HIGH') {
+    if (normalizedScore >= 81 || riskLevel === 'CRITICAL') {
+      return {
+        text: 'text-red-400',
+        bg: 'bg-red-600/10',
+        border: 'border-red-600/30',
+        gradient: 'from-red-600 to-red-800',
+        shadow: 'shadow-red-600/20',
+        badge: 'bg-red-600/20 text-red-300 border-red-600/40',
+        label: 'CRITICAL',
+        icon: ShieldAlert,
+      };
+    }
+    if (normalizedScore >= 61 || riskLevel === 'HIGH') {
       return {
         text: 'text-rose-400',
         bg: 'bg-rose-500/10',
@@ -22,7 +34,7 @@ export const ThreatMeter = ({ score = 0, riskLevel = 'LOW' }) => {
         icon: ShieldAlert,
       };
     }
-    if (normalizedScore >= 30 || riskLevel === 'MEDIUM') {
+    if (normalizedScore >= 31 || riskLevel === 'MEDIUM') {
       return {
         text: 'text-amber-400',
         bg: 'bg-amber-500/10',
