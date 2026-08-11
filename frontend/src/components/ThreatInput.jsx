@@ -102,8 +102,8 @@ export const ThreatInput = ({ onAnalyze, loading }) => {
         >
           {/* Subtle Smart Input Detector Badge inside top-right corner */}
           {inputText.trim() && (
-            <div className="absolute top-3 right-3 text-xs px-2.5 py-1 rounded-full bg-[var(--bg-card)] border border-[var(--border)] text-[var(--text-muted)] flex items-center gap-1.5 shadow-sm font-semibold pointer-events-none z-20">
-              {inputType === 'phone' ? '📱 Phone detected' : '🛡️ Threat scan'}
+            <div className="absolute top-3 right-3 text-xs px-2.5 py-1 rounded-full bg-cyan-900/30 border border-cyan-700/30 text-cyan-300 flex items-center gap-1.5 shadow-sm font-semibold pointer-events-none z-20">
+              {inputType === 'phone' ? '📱 Phone' : '🛡️ Threat'}
             </div>
           )}
 
@@ -177,7 +177,7 @@ export const ThreatInput = ({ onAnalyze, loading }) => {
               ) : (
                 <>
                   <Sparkles className="w-4 h-4 text-cyan-200" />
-                  <span>{inputType === 'phone' ? 'Lookup number' : t('analyze_threat')}</span>
+                  <span>{inputType === 'phone' ? 'Lookup number' : 'Analyze threat'}</span>
                 </>
               )}
             </button>

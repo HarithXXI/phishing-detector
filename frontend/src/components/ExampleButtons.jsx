@@ -9,22 +9,17 @@ export const ExampleButtons = ({ onSelectExample }) => {
     {
       key: 'try_paypal',
       label: t('try_paypal'),
-      text: 'Urgent Alert: Your PayPal account has been limited due to suspicious login attempt. Restore access immediately at http://paypal-secure-login.co/verify',
+      text: 'Dear customer, your PayPal account has been locked. Verify at http://paypal-secure-login.tk/login',
     },
     {
       key: 'try_sms',
       label: t('try_sms'),
-      text: 'SBI Alert: Your account 4829XX will be suspended today. Please update PAN immediately at http://sbi-verifiy.xyz/stop',
-    },
-    {
-      key: 'try_phone',
-      label: '📱 Try Phone Scam',
-      text: '+91 98765 43210',
+      text: 'Your SBI account blocked. Update KYC now: http://sbi-kyc-update.xyz',
     },
     {
       key: 'try_email',
       label: t('try_email'),
-      text: 'From: support@security-update-service.top\nSubject: Account Verification Required\nDear Customer, We detected an unauthorized sign-in from IP 185.220.101.5. Click here to confirm your credentials.',
+      text: 'Your Amazon order #123 failed. Click here to update payment: http://amazon-billing-update.com',
     },
   ];
 
