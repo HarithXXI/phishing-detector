@@ -91,13 +91,18 @@ async def analyze(payload: AnalyzeRequest):
         safe_wfuzz()
     )
 
+    vt_dict: dict = vt_res if isinstance(vt_res, dict) else {"malicious": 0}
+    abuse_dict: dict = abuse_res if isinstance(abuse_res, dict) else {"risk_score": 0}
+    ai_dict: dict = ai_res if isinstance(ai_res, dict) else {"is_phishing": False, "risk_level": "LOW"}
+    whois_dict: dict = whois_res if isinstance(whois_res, dict) else {}
+
     dns_risk = dns_res.get("risk", 0) if isinstance(dns_res, dict) else 0
     ip_risk = ip_res.get("risk", 0) if isinstance(ip_res, dict) else 0
     harvest_risk = harvest_res.get("risk", 0) if isinstance(harvest_res, dict) else 0
     wfuzz_risk = wfuzz_res.get("risk", 0) if isinstance(wfuzz_res, dict) else 0
 
     osint_score = dns_risk + ip_risk + harvest_risk + wfuzz_risk
-    base_scoring = calculate_composite_score(rule_risks, url_risks, vt_res, abuse_res, ai_res, whois_res, {"ml_score": 0})
+    base_scoring = calculate_composite_score(rule_risks, url_risks, vt_dict, abuse_dict, ai_dict, whois_dict, {"ml_score": 0})
     final_score = min(100, base_scoring["score"] + osint_score)
 
     return {
