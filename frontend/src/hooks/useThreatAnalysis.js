@@ -13,7 +13,7 @@ export const useThreatAnalysis = () => {
     try {
       let res = null;
       if (file) {
-        res = await analyzeImage(file);
+        res = await analyzeImage(file, typeof input === 'string' ? input : '');
         if (res.extracted_text) {
           setExtractedText(res.extracted_text);
         }

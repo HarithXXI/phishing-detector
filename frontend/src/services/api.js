@@ -16,10 +16,11 @@ export const analyzeThreat = async (text) => {
   }
 };
 
-export const analyzeImage = async (file) => {
+export const analyzeImage = async (file, text = '') => {
   try {
     const formData = new FormData();
-    formData.append('image', file);
+    if (file) formData.append('image', file);
+    if (text) formData.append('text', text);
 
     const response = await api.post('/api/analyze-image', formData, {
       headers: {
@@ -29,6 +30,12 @@ export const analyzeImage = async (file) => {
     return response.data;
   } catch (error) {
     console.error('[API Error] analyzeImage:', error);
+    if (error.response?.data?.error) {
+      return { error: error.response.data.error };
+    }
+    if (text && text.trim()) {
+      return await analyzeThreat(text.trim());
+    }
     throw new Error(error.response?.data?.error || 'Failed to analyze screenshot');
   }
 };

@@ -95,9 +95,9 @@ async def analyze_input(payload: AnalyzeRequest):
     })
 
     # ── Layer 3: WHOIS Domain Age & Layer 4: ML Prediction (Instant) ──
-    target_domain = extracted_urls[0] if extracted_urls else text
-    whois_res = check_domain_age(target_domain)
-    ml_res = predict_ml(target_domain)
+    target_domain = extracted_urls[0] if extracted_urls else (text if len(text) < 100 and "." in text and not " " in text else "")
+    whois_res = check_domain_age(target_domain) if target_domain else {"domain": "", "age_days": None, "creation_date": None, "risk": "LOW", "score": 0, "reason": "No domain found"}
+    ml_res = predict_ml(target_domain) if target_domain else {"is_phishing": False, "ml_score": 0, "confidence": 0, "model": "ML Ensemble", "reasons": []}
 
     detection_flow.append({
         "layer": "WHOIS Domain Age Service",
@@ -264,27 +264,34 @@ from app.services.ocr_service import scan_image as ocr_scan_image
 
 
 @router.post("/analyze-image")
-async def analyze_image_endpoint(image: UploadFile = File(None)):
+async def analyze_image_endpoint(image: UploadFile = File(None), text: str = Form("")):
     """
     Image Analysis Endpoint for FastAPI Heavy Backend.
-    Accepts uploaded file, extracts text via OpenCV+EasyOCR (or Gemini Vision fallback), and runs analysis.
+    Accepts uploaded file + optional client text, extracts text via EasyOCR (or Gemini Vision), and runs analysis.
     """
-    if not image:
-        return {"error": "No image file provided"}
+    extracted_text = ""
 
-    contents = await image.read()
-    mime_type = image.content_type or "image/png"
+    if image:
+        try:
+            contents = await image.read()
+            mime_type = image.content_type or "image/png"
+            if contents:
+                # Step 1: Run EasyOCR + OpenCV
+                extracted_text = ocr_scan_image(contents).strip()
 
-    # Step 1: Run EasyOCR + OpenCV
-    extracted_text = ocr_scan_image(contents).strip()
+                # Step 2: Fallback to Gemini Vision API if EasyOCR returns empty
+                if not extracted_text:
+                    vision_res = await analyze_image_vision(contents, mime_type=mime_type)
+                    extracted_text = vision_res.get("extracted_text", "").strip()
+        except Exception as e:
+            log.error(f"[Analyze Image Error]: {e}")
 
-    # Step 2: Fallback to Gemini Vision API if EasyOCR returns empty
+    # Step 3: Fallback to client-side text (e.g. from Tesseract.js or user input) if OCR returned empty
+    if not extracted_text and text and text.strip():
+        extracted_text = text.strip()
+
     if not extracted_text:
-        vision_res = await analyze_image_vision(contents, mime_type=mime_type)
-        extracted_text = vision_res.get("extracted_text", "").strip()
-
-    if not extracted_text:
-        return {"error": "No text extracted from image", "extracted_text": ""}
+        return {"error": "No text extracted from image. Please enter text or try a clearer image.", "extracted_text": ""}
 
     # Run extracted text through 6-layer analysis
     payload = AnalyzeRequest(text=extracted_text)
