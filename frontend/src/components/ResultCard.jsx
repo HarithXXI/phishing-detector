@@ -2,7 +2,6 @@ import React from 'react';
 import {
   ShieldCheck,
   ShieldAlert,
-  Cpu,
   Globe,
   Server,
   Activity,
@@ -12,7 +11,7 @@ import {
   XCircle,
   MapPin,
   Radio,
-  HardDrive
+  Cpu
 } from 'lucide-react';
 
 export const ResultCard = ({ result }) => {
@@ -22,30 +21,25 @@ export const ResultCard = ({ result }) => {
     score = 0,
     risk_level = 'LOW',
     attack_type = 'unknown',
+    vector = '',
     breakdown = {},
     whois = {},
-    ml_model = {},
     virustotal = {},
     abuseipdb = {},
     ai_result = {},
     dns = {},
     ip_details = {},
-    osint = {},
     risk_factors = [],
     cached = false
   } = result;
 
+  const displayVector = vector || attack_type.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
   const isHighRisk = score >= 65 || risk_level === 'HIGH' || risk_level === 'CRITICAL';
   const isMediumRisk = score >= 30 || risk_level === 'MEDIUM';
 
-  const formatAttackType = (type) => {
-    return type
-      .replace(/_/g, ' ')
-      .replace(/\b\w/g, (c) => c.toUpperCase());
-  };
-
   const dnsChecks = dns?.checks || {};
-  const hasNoMx = dnsChecks.MX === false || (dns?.MX && dns.MX.length === 0);
+  const isAMissing = dnsChecks.A === false;
+  const isMxMissing = dnsChecks.MX === false || (!dns?.MX || dns.MX.length === 0);
 
   return (
     <div className="w-full space-y-6">
@@ -76,7 +70,7 @@ export const ResultCard = ({ result }) => {
             <div>
               <div className="flex items-center space-x-2">
                 <h3 className="text-lg font-bold text-[var(--text-main)]">
-                  Attack Vector: <span className="text-cyan-500 font-extrabold">{formatAttackType(attack_type)}</span>
+                  Attack Vector: <span className="text-cyan-500 font-extrabold">{displayVector}</span>
                 </h3>
                 {cached && (
                   <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-cyan-500/10 text-cyan-500 border border-cyan-500/20">
@@ -85,7 +79,7 @@ export const ResultCard = ({ result }) => {
                 )}
               </div>
               <p className="text-xs text-[var(--text-muted)] mt-0.5">
-                v3.1 OSINT & Multi-Layer Threat Verification Analysis
+                v3.1 PhishGuard Multimodal OSINT & Threat Analysis Engine
               </p>
             </div>
           </div>
@@ -106,26 +100,34 @@ export const ResultCard = ({ result }) => {
         </div>
       </div>
 
-      {/* OSINT & Detection Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      {/* Grid Row 1: OSINT Infrastructure Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* DNS Checker Card */}
-        <div className="p-4 rounded-xl bg-[var(--bg-card)] border border-[var(--border)] shadow-[var(--shadow)] space-y-3 col-span-1 md:col-span-2 lg:col-span-1">
+        <div className="p-5 rounded-2xl bg-[var(--bg-card)] border border-[var(--border)] shadow-[var(--shadow)] space-y-3">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-1.5">
               <Radio className="w-4 h-4 text-cyan-400" />
-              DNS & Email Records
+              DNS Security & Mail Records
             </span>
-            {hasNoMx && (
+            {isAMissing ? (
               <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30">
-                Fake domain - No mail server
+                Fake Domain - No A Record
+              </span>
+            ) : isMxMissing ? (
+              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                No MX Mail Server
+              </span>
+            ) : (
+              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                Active Domain
               </span>
             )}
           </div>
 
           <div className="grid grid-cols-2 gap-2 text-xs">
-            <div className="flex items-center justify-between p-2 rounded bg-[var(--bg-input)] border border-[var(--border)]">
+            <div className="flex items-center justify-between p-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border)]">
               <span className="text-[var(--text-muted)]">A Record:</span>
-              {dnsChecks.A ? (
+              {dnsChecks.A !== false ? (
                 <span className="flex items-center text-emerald-400 font-bold gap-1">
                   <CheckCircle2 className="w-3.5 h-3.5" /> Valid
                 </span>
@@ -136,41 +138,41 @@ export const ResultCard = ({ result }) => {
               )}
             </div>
 
-            <div className="flex items-center justify-between p-2 rounded bg-[var(--bg-input)] border border-[var(--border)]">
+            <div className="flex items-center justify-between p-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border)]">
               <span className="text-[var(--text-muted)]">MX Server:</span>
               {dnsChecks.MX ? (
                 <span className="flex items-center text-emerald-400 font-bold gap-1">
                   <CheckCircle2 className="w-3.5 h-3.5" /> Active
                 </span>
               ) : (
-                <span className="flex items-center text-rose-400 font-bold gap-1">
-                  <XCircle className="w-3.5 h-3.5" /> None
+                <span className="flex items-center text-amber-400 font-bold gap-1">
+                  <AlertCircle className="w-3.5 h-3.5" /> None
                 </span>
               )}
             </div>
 
-            <div className="flex items-center justify-between p-2 rounded bg-[var(--bg-input)] border border-[var(--border)]">
+            <div className="flex items-center justify-between p-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border)]">
               <span className="text-[var(--text-muted)]">SPF Record:</span>
               {dnsChecks.SPF ? (
                 <span className="flex items-center text-emerald-400 font-bold gap-1">
                   <CheckCircle2 className="w-3.5 h-3.5" /> Pass
                 </span>
               ) : (
-                <span className="flex items-center text-rose-400 font-bold gap-1">
-                  <XCircle className="w-3.5 h-3.5" /> Missing
+                <span className="flex items-center text-amber-400 font-bold gap-1">
+                  <AlertCircle className="w-3.5 h-3.5" /> Missing
                 </span>
               )}
             </div>
 
-            <div className="flex items-center justify-between p-2 rounded bg-[var(--bg-input)] border border-[var(--border)]">
+            <div className="flex items-center justify-between p-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border)]">
               <span className="text-[var(--text-muted)]">DMARC:</span>
               {dnsChecks.DMARC ? (
                 <span className="flex items-center text-emerald-400 font-bold gap-1">
                   <CheckCircle2 className="w-3.5 h-3.5" /> Protected
                 </span>
               ) : (
-                <span className="flex items-center text-rose-400 font-bold gap-1">
-                  <XCircle className="w-3.5 h-3.5" /> Missing
+                <span className="flex items-center text-amber-400 font-bold gap-1">
+                  <AlertCircle className="w-3.5 h-3.5" /> Missing
                 </span>
               )}
             </div>
@@ -178,50 +180,51 @@ export const ResultCard = ({ result }) => {
         </div>
 
         {/* IP Detail Finder Card */}
-        <div className="p-4 rounded-xl bg-[var(--bg-card)] border border-[var(--border)] shadow-[var(--shadow)] space-y-3 col-span-1 md:col-span-2 lg:col-span-1">
+        <div className="p-5 rounded-2xl bg-[var(--bg-card)] border border-[var(--border)] shadow-[var(--shadow)] space-y-3">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-1.5">
               <MapPin className="w-4 h-4 text-emerald-400" />
-              IP Detail Finder
+              IP Detail & Hosting Finder
             </span>
             <span className="text-xs font-mono font-bold text-cyan-400">
               {ip_details?.ip || 'N/A'}
             </span>
           </div>
 
-          <div className="space-y-1.5 text-xs text-[var(--text-muted)]">
-            <div className="flex justify-between border-b border-[var(--border)] pb-1">
+          <div className="space-y-2 text-xs text-[var(--text-muted)]">
+            <div className="flex justify-between border-b border-[var(--border)] pb-1.5">
               <span>Location:</span>
               <span className="font-semibold text-[var(--text-main)]">
-                {[ip_details?.geo?.city, ip_details?.geo?.country].filter(Boolean).join(', ') || 'Unknown'}
+                {[ip_details?.geo?.city, ip_details?.geo?.country].filter(Boolean).join(', ') || 'Global IP'}
               </span>
             </div>
-            <div className="flex justify-between border-b border-[var(--border)] pb-1">
+            <div className="flex justify-between border-b border-[var(--border)] pb-1.5">
               <span>ISP / Network:</span>
-              <span className="font-semibold text-[var(--text-main)] truncate max-w-[180px]">
-                {ip_details?.asn?.isp || ip_details?.asn?.org || 'Unknown'}
+              <span className="font-semibold text-[var(--text-main)] truncate max-w-[200px]">
+                {ip_details?.asn?.isp || ip_details?.asn?.org || 'Cloud Provider'}
               </span>
             </div>
             <div className="flex items-center gap-2 pt-1">
+              <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
+                ip_details?.is_hosting
+                  ? 'bg-amber-500/20 text-amber-400 border-amber-500/30'
+                  : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+              }`}>
+                {ip_details?.is_hosting ? 'Hosting IP' : 'Residential IP'}
+              </span>
+
               {ip_details?.is_proxy && (
                 <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30">
-                  Proxy / VPN Detected
-                </span>
-              )}
-              {ip_details?.is_hosting && (
-                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">
-                  Hosting Server IP
-                </span>
-              )}
-              {!ip_details?.is_proxy && !ip_details?.is_hosting && (
-                <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                  Direct Resident IP
+                  Proxy / VPN
                 </span>
               )}
             </div>
           </div>
         </div>
+      </div>
 
+      {/* Grid Row 2: 6 Detection Layer Score Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {/* Layer 1: Rule Engine */}
         <div className="p-4 rounded-xl bg-[var(--bg-card)] border border-[var(--border)] shadow-[var(--shadow)] space-y-2">
           <div className="flex items-center justify-between">
@@ -229,10 +232,10 @@ export const ResultCard = ({ result }) => {
               <Activity className="w-4 h-4 text-cyan-500" />
               Rule Signatures
             </span>
-            <span className="text-sm font-bold text-[var(--text-main)]">{breakdown.rule_engine || 0} pts</span>
+            <span className="text-sm font-bold text-[var(--text-main)]">{breakdown.rule ?? breakdown.rule_engine ?? 0} pts</span>
           </div>
           <p className="text-xs text-[var(--text-muted)]">
-            Regex heuristics & malicious regex patterns match score.
+            Regex heuristics & phishing keyword match score.
           </p>
         </div>
 
@@ -243,7 +246,7 @@ export const ResultCard = ({ result }) => {
               <Globe className="w-4 h-4 text-blue-500" />
               URL Structure
             </span>
-            <span className="text-sm font-bold text-[var(--text-main)]">{breakdown.url_heuristic || 0} pts</span>
+            <span className="text-sm font-bold text-[var(--text-main)]">{breakdown.url ?? breakdown.url_heuristic ?? 0} pts</span>
           </div>
           <p className="text-xs text-[var(--text-muted)]">
             Typosquatting, Shannon entropy & path complexity checks.
@@ -257,18 +260,13 @@ export const ResultCard = ({ result }) => {
               <Database className="w-4 h-4 text-amber-500" />
               WHOIS Domain Age
             </span>
-            <span className="text-sm font-bold text-[var(--text-main)]">{breakdown.whois_age || 0} pts</span>
+            <span className="text-sm font-bold text-[var(--text-main)]">{breakdown.whois ?? breakdown.whois_age ?? 0} pts</span>
           </div>
           <p className="text-xs text-[var(--text-muted)]">
             {whois?.age_days !== undefined && whois?.age_days !== null
-              ? `Domain age: ${whois.age_days} days (Created: ${whois.creation_date || 'N/A'})`
-              : whois?.reason || 'WHOIS registry lookup evaluated'}
+              ? `Domain age: ${whois.age_days} days`
+              : whois?.reason || 'Domain registry lookup evaluated'}
           </p>
-          {breakdown.young_domain_boost > 0 && (
-            <span className="inline-block text-[10px] font-bold text-amber-600 dark:text-amber-300 bg-amber-500/20 px-2 py-0.5 rounded border border-amber-500/30">
-              +{breakdown.young_domain_boost} {breakdown.young_domain_boost === 20 ? 'Young Domain Boost (<30d)' : 'Restricted WHOIS Boost'}
-            </span>
-          )}
         </div>
 
         {/* Layer 4: VirusTotal Threat Intel */}
@@ -276,9 +274,9 @@ export const ResultCard = ({ result }) => {
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-1.5">
               <Server className="w-4 h-4 text-emerald-500" />
-              VirusTotal (70 Vendors)
+              VirusTotal Threat Intel
             </span>
-            <span className="text-sm font-bold text-[var(--text-main)]">{breakdown.virustotal || 0} pts</span>
+            <span className="text-sm font-bold text-[var(--text-main)]">{breakdown.vt ?? breakdown.virustotal ?? 0} pts</span>
           </div>
           <p className="text-xs text-[var(--text-muted)]">
             Malicious: {virustotal?.malicious || 0} | Suspicious: {virustotal?.suspicious || 0}
@@ -292,10 +290,24 @@ export const ResultCard = ({ result }) => {
               <AlertCircle className="w-4 h-4 text-rose-500" />
               AbuseIPDB Reputation
             </span>
-            <span className="text-sm font-bold text-[var(--text-main)]">{breakdown.abuseipdb || 0} pts</span>
+            <span className="text-sm font-bold text-[var(--text-main)]">{breakdown.abuse ?? breakdown.abuseipdb ?? 0} pts</span>
           </div>
           <p className="text-xs text-[var(--text-muted)]">
             Abuse Confidence Score: {abuseipdb?.abuseConfidenceScore || 0}%
+          </p>
+        </div>
+
+        {/* Layer 6: AI Safety Reasoning */}
+        <div className="p-4 rounded-xl bg-[var(--bg-card)] border border-[var(--border)] shadow-[var(--shadow)] space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-1.5">
+              <Cpu className="w-4 h-4 text-purple-400" />
+              AI Safety Reasoning
+            </span>
+            <span className="text-sm font-bold text-[var(--text-main)]">{breakdown.ai ?? 0} pts</span>
+          </div>
+          <p className="text-xs text-[var(--text-muted)]">
+            Gemini AI LLM multimodal intent verification.
           </p>
         </div>
       </div>

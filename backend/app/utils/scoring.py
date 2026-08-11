@@ -1,104 +1,71 @@
-"""
-Scoring Utility
-
-Aggregates the 6 detection layers into a final
-phishing risk score (0-100) using a deterministic formula.
-
-Formula & Layer Weights (Total = 100%):
-  rule_engine    = 25% (min 25 pts)
-  url_heuristic  = 15% (min 15 pts)
-  ml_model       = 25% (min 25 pts)
-  whois_age      = 15% (min 15 pts)
-  virustotal     = 10% (min 10 pts)
-  abuseipdb      = 10% (min 10 pts)
-  + young_domain_boost (20 pts for domain < 30 days old)
-"""
-
 from typing import Optional, Dict, Any
 
-
 def calculate_composite_score(
-    rule_risks: list[str],
-    url_risks: list[str],
-    vt_result: dict,
-    abuse_result: dict,
-    ai_result: dict,
-    whois_result: Optional[dict] = None,
-    ml_result: Optional[dict] = None,
+    rule_risks: list = None,
+    url_risks: list = None,
+    vt_res: dict = None,
+    abuse_res: dict = None,
+    ai_res: dict = None,
+    whois_res: Optional[dict] = None,
+    ml_data: Optional[dict] = None,
+    dns_res: Optional[dict] = None,
+    ip_res: Optional[dict] = None,
+    harvest_res: Optional[dict] = None,
+    wfuzz_res: Optional[dict] = None
 ) -> dict:
-    """
-    Calculate the final composite phishing score using 6-layer balanced weight distribution
-    where final_score ALWAYS strictly equals the exact sum of all layer breakdown points + boosts.
-    """
-    whois_data: Dict[Any, Any] = whois_result or {}
-    ml_data: Dict[Any, Any] = ml_result or {}
-    vt_data: Dict[Any, Any] = vt_result or {}
-    abuse_data: Dict[Any, Any] = abuse_result or {}
+    rule_risks_list = rule_risks or []
+    url_risks_list = url_risks or []
+    vt_dict = vt_res or {}
+    abuse_dict = abuse_res or {}
+    ai_dict = ai_res or {}
+    whois_dict = whois_res or {}
+    dns_dict = dns_res or {}
+    ip_dict = ip_res or {}
+    harvest_dict = harvest_res or {}
+    wfuzz_dict = wfuzz_res or {}
 
-    # Layer Scores (0-100 normalized)
-    rule_norm = min(100, len(rule_risks) * 25)
-    url_norm = min(100, len(url_risks) * 30)
+    rule_score = len(rule_risks_list) * 20
+    url_score = len(url_risks_list) * 20
+    vt_score = vt_dict.get('malicious', 0) * 10
+    abuse_score = (abuse_dict.get('risk_score', 0) or abuse_dict.get('abuseConfidenceScore', 0)) // 2
+    ai_score = 25 if ai_dict.get('is_phishing') else 0
+    whois_score = whois_dict.get('risk_score', whois_dict.get('score', 0)) if isinstance(whois_dict, dict) else 0
+    dns_score = dns_dict.get('risk', 0) if isinstance(dns_dict, dict) else 0
+    ip_score = ip_dict.get('risk', 0) if isinstance(ip_dict, dict) else 0
+    harvest_score = harvest_dict.get('risk', 0) if isinstance(harvest_dict, dict) else 0
+    wfuzz_score = wfuzz_dict.get('risk', 0) if isinstance(wfuzz_dict, dict) else 0
 
-    # ML Model score (0-100)
-    ml_norm = ml_data.get("ml_score", 0) if isinstance(ml_data, dict) else 0
+    total = min(100, rule_score + url_score + vt_score + abuse_score + ai_score + whois_score + dns_score + ip_score + harvest_score + wfuzz_score)
 
-    # VirusTotal score (0-100)
-    vt_malicious = vt_data.get("malicious", 0) if isinstance(vt_data, dict) else 0
-    vt_suspicious = vt_data.get("suspicious", 0) if isinstance(vt_data, dict) else 0
-    vt_norm = min(100, (vt_malicious * 50) + (vt_suspicious * 25))
-
-    # WHOIS Domain Age score (0-100)
-    whois_norm = whois_data.get("score", 10) if isinstance(whois_data, dict) else 10
-
-    # AbuseIPDB score (0-100)
-    abuse_conf = abuse_data.get("abuseConfidenceScore", 0) if isinstance(abuse_data, dict) else 0
-    abuse_norm = min(100, int(abuse_conf))
-
-    # Calculate exact integer breakdown points for each layer
-    rule_pts = round(rule_norm * 0.25)
-    url_pts = round(url_norm * 0.15)
-    ml_pts = round(ml_norm * 0.25)
-    whois_pts = round(whois_norm * 0.15)
-    vt_pts = round(vt_norm * 0.10)
-    abuse_pts = round(abuse_norm * 0.10)
-
-    # Calculate Boost Rule
-    age_days = whois_data.get("age_days") if isinstance(whois_data, dict) else None
-    young_boost = 0
-
-    if age_days is not None and age_days < 30:
-        young_boost = 20
-        print(f"[Scoring Engine] Applied +20 young domain boost (Age: {age_days} days)")
-    elif whois_data.get("risk") == "HIGH" and whois_data.get("raw_whois_success") is False:
-        young_boost = 10
-        print(f"[Scoring Engine] Applied +10 restricted WHOIS boost")
-
-    # Final score is GUARANTEED to match the sum of all breakdown components
-    raw_sum = rule_pts + url_pts + ml_pts + whois_pts + vt_pts + abuse_pts + young_boost
-    final_score = max(0, min(100, raw_sum))
-
-    print(f"[Scoring Engine] Exact sum composite score: {final_score}% ({rule_pts}+{url_pts}+{ml_pts}+{whois_pts}+{vt_pts}+{abuse_pts}+{young_boost})")
-
-    if final_score >= 65:
-        risk_level = "HIGH"
-    elif final_score >= 30:
-        risk_level = "MEDIUM"
+    if url_score > 0:
+        vector = "Malicious URL"
+    elif rule_score > 15:
+        vector = "Phishing Keywords"
+    elif dns_score >= 20:
+        vector = "Suspicious Domain Infrastructure"
+    elif ip_score > 10:
+        vector = "Hosting/Proxy Abuse"
     else:
-        risk_level = "LOW"
+        vector = "Suspicious Content"
 
-    breakdown = {
-        "rule_engine": rule_pts,
-        "url_heuristic": url_pts,
-        "ml_model": ml_pts,
-        "whois_age": whois_pts,
-        "virustotal": vt_pts,
-        "abuseipdb": abuse_pts,
-        "young_domain_boost": young_boost,
-    }
+    risk_level = "CRITICAL" if total >= 75 else "HIGH" if total >= 50 else "MEDIUM" if total >= 25 else "LOW"
 
     return {
-        "score": final_score,
-        "composite_score": final_score,
+        "score": total,
         "risk_level": risk_level,
-        "breakdown": breakdown,
+        "vector": vector,
+        "attack_type": vector.lower().replace(" ", "_"),
+        "breakdown": {
+            "total": total,
+            "rule": rule_score,
+            "url": url_score,
+            "vt": vt_score,
+            "abuse": abuse_score,
+            "ai": ai_score,
+            "whois": whois_score,
+            "dns": dns_score,
+            "ip": ip_score,
+            "harvester": harvest_score,
+            "wfuzz": wfuzz_score
+        }
     }
