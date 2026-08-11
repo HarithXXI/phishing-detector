@@ -30,16 +30,31 @@ def calculate_composite_score(
     harvest_dict = harvest_res or kwargs.get("harvest_result") or {}
     wfuzz_dict = wfuzz_res or kwargs.get("wfuzz_result") or {}
 
-    rule_raw = int(len(rule_risks_list) * 20)
-    url_raw = int(len(url_risks_list) * 20)
-    vt_raw = int(vt_dict.get('malicious', 0) * 10)
-    abuse_raw = int((abuse_dict.get('risk_score', 0) or abuse_dict.get('abuseConfidenceScore', 0)) // 2)
-    ai_raw = 25 if ai_dict.get('is_phishing') else 0
-    whois_raw = int(whois_dict.get('risk_score', whois_dict.get('score', 0))) if isinstance(whois_dict, dict) else 0
-    dns_raw = int(dns_dict.get('risk', 0)) if isinstance(dns_dict, dict) else 0
-    ip_raw = int(ip_dict.get('risk', 0)) if isinstance(ip_dict, dict) else 0
-    harvest_raw = int(harvest_dict.get('risk', 0)) if isinstance(harvest_dict, dict) else 0
-    wfuzz_raw = int(wfuzz_dict.get('risk', 0)) if isinstance(wfuzz_dict, dict) else 0
+    rule_raw: int = len(rule_risks_list) * 20
+    url_raw: int = len(url_risks_list) * 20
+
+    vt_val = vt_dict.get('malicious', 0) if isinstance(vt_dict, dict) else 0
+    vt_raw: int = int(vt_val or 0) * 10
+
+    abuse_val = abuse_dict.get('risk_score', 0) or abuse_dict.get('abuseConfidenceScore', 0) if isinstance(abuse_dict, dict) else 0
+    abuse_raw: int = int(abuse_val or 0) // 2
+
+    ai_raw: int = 25 if (isinstance(ai_dict, dict) and ai_dict.get('is_phishing')) else 0
+
+    whois_val = (whois_dict.get('risk_score') or whois_dict.get('score') or 0) if isinstance(whois_dict, dict) else 0
+    whois_raw: int = int(whois_val or 0)
+
+    dns_val = dns_dict.get('risk', 0) if isinstance(dns_dict, dict) else 0
+    dns_raw: int = int(dns_val or 0)
+
+    ip_val = ip_dict.get('risk', 0) if isinstance(ip_dict, dict) else 0
+    ip_raw: int = int(ip_val or 0)
+
+    harvest_val = harvest_dict.get('risk', 0) if isinstance(harvest_dict, dict) else 0
+    harvest_raw: int = int(harvest_val or 0)
+
+    wfuzz_val = wfuzz_dict.get('risk', 0) if isinstance(wfuzz_dict, dict) else 0
+    wfuzz_raw: int = int(wfuzz_val or 0)
 
     raw_breakdown: Dict[str, int] = {
         "rule": rule_raw,
@@ -54,17 +69,17 @@ def calculate_composite_score(
         "wfuzz": wfuzz_raw
     }
 
-    raw_sum: int = sum(int(v) for v in raw_breakdown.values())
+    raw_sum: int = sum(raw_breakdown.values())
 
     if raw_sum == 0:
         total = 0
-        final_breakdown = {k: 0 for k in raw_breakdown}
+        final_breakdown: Dict[str, int] = {k: 0 for k in raw_breakdown}
     elif raw_sum <= 100:
         total = raw_sum
         final_breakdown = dict(raw_breakdown)
     else:
         total = 100
-        scaled: Dict[str, int] = {k: int(round((v / raw_sum) * 100)) for k, v in raw_breakdown.items()}
+        scaled: Dict[str, int] = {k: round((v / raw_sum) * 100) for k, v in raw_breakdown.items()}
         diff = 100 - sum(scaled.values())
         if diff != 0:
             max_key = max(list(scaled.keys()), key=lambda k: scaled[k])
