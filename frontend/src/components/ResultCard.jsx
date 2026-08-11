@@ -1,5 +1,19 @@
 import React from 'react';
-import { ShieldCheck, ShieldAlert, Cpu, Globe, Server, Activity, Database, AlertCircle } from 'lucide-react';
+import {
+  ShieldCheck,
+  ShieldAlert,
+  Cpu,
+  Globe,
+  Server,
+  Activity,
+  Database,
+  AlertCircle,
+  CheckCircle2,
+  XCircle,
+  MapPin,
+  Radio,
+  HardDrive
+} from 'lucide-react';
 
 export const ResultCard = ({ result }) => {
   if (!result) return null;
@@ -14,11 +28,14 @@ export const ResultCard = ({ result }) => {
     virustotal = {},
     abuseipdb = {},
     ai_result = {},
+    dns = {},
+    ip_details = {},
+    osint = {},
     risk_factors = [],
     cached = false
   } = result;
 
-  const isHighRisk = score >= 65 || risk_level === 'HIGH';
+  const isHighRisk = score >= 65 || risk_level === 'HIGH' || risk_level === 'CRITICAL';
   const isMediumRisk = score >= 30 || risk_level === 'MEDIUM';
 
   const formatAttackType = (type) => {
@@ -27,21 +44,32 @@ export const ResultCard = ({ result }) => {
       .replace(/\b\w/g, (c) => c.toUpperCase());
   };
 
+  const dnsChecks = dns?.checks || {};
+  const hasNoMx = dnsChecks.MX === false || (dns?.MX && dns.MX.length === 0);
+
   return (
     <div className="w-full space-y-6">
       {/* Top Banner Card */}
-      <div className={`p-6 rounded-2xl border transition-all duration-300 ${
-        isHighRisk
-          ? 'border-rose-500/40 bg-rose-500/10 text-rose-300 shadow-xl'
-          : isMediumRisk
-          ? 'border-amber-500/40 bg-amber-500/10 text-amber-300 shadow-xl'
-          : 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300 shadow-xl'
-      }`}>
+      <div
+        className={`p-6 rounded-2xl border transition-all duration-300 ${
+          isHighRisk
+            ? 'border-rose-500/40 bg-rose-500/10 text-rose-300 shadow-xl'
+            : isMediumRisk
+            ? 'border-amber-500/40 bg-amber-500/10 text-amber-300 shadow-xl'
+            : 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300 shadow-xl'
+        }`}
+      >
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div className="flex items-center space-x-4">
-            <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${
-              isHighRisk ? 'bg-rose-500/20 text-rose-400' : isMediumRisk ? 'bg-amber-500/20 text-amber-400' : 'bg-emerald-500/20 text-emerald-400'
-            }`}>
+            <div
+              className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${
+                isHighRisk
+                  ? 'bg-rose-500/20 text-rose-400'
+                  : isMediumRisk
+                  ? 'bg-amber-500/20 text-amber-400'
+                  : 'bg-emerald-500/20 text-emerald-400'
+              }`}
+            >
               {isHighRisk ? <ShieldAlert className="w-7 h-7" /> : <ShieldCheck className="w-7 h-7" />}
             </div>
 
@@ -57,27 +85,143 @@ export const ResultCard = ({ result }) => {
                 )}
               </div>
               <p className="text-xs text-[var(--text-muted)] mt-0.5">
-                6-Layer Deterministic Threat Verification Analysis
+                v3.1 OSINT & Multi-Layer Threat Verification Analysis
               </p>
             </div>
           </div>
 
           <div className="flex items-center space-x-3">
-            <span className={`px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider border ${
-              isHighRisk
-                ? 'bg-rose-500/20 text-rose-500 border-rose-500/40'
-                : isMediumRisk
-                ? 'bg-amber-500/20 text-amber-500 border-amber-500/40'
-                : 'bg-emerald-500/20 text-emerald-500 border-emerald-500/40'
-            }`}>
+            <span
+              className={`px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider border ${
+                isHighRisk
+                  ? 'bg-rose-500/20 text-rose-500 border-rose-500/40'
+                  : isMediumRisk
+                  ? 'bg-amber-500/20 text-amber-500 border-amber-500/40'
+                  : 'bg-emerald-500/20 text-emerald-500 border-emerald-500/40'
+              }`}
+            >
               {risk_level} RISK ({score}%)
             </span>
           </div>
         </div>
       </div>
 
-      {/* 6-Layer Detection Grid */}
+      {/* OSINT & Detection Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {/* DNS Checker Card */}
+        <div className="p-4 rounded-xl bg-[var(--bg-card)] border border-[var(--border)] shadow-[var(--shadow)] space-y-3 col-span-1 md:col-span-2 lg:col-span-1">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-1.5">
+              <Radio className="w-4 h-4 text-cyan-400" />
+              DNS & Email Records
+            </span>
+            {hasNoMx && (
+              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30">
+                Fake domain - No mail server
+              </span>
+            )}
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 text-xs">
+            <div className="flex items-center justify-between p-2 rounded bg-[var(--bg-input)] border border-[var(--border)]">
+              <span className="text-[var(--text-muted)]">A Record:</span>
+              {dnsChecks.A ? (
+                <span className="flex items-center text-emerald-400 font-bold gap-1">
+                  <CheckCircle2 className="w-3.5 h-3.5" /> Valid
+                </span>
+              ) : (
+                <span className="flex items-center text-rose-400 font-bold gap-1">
+                  <XCircle className="w-3.5 h-3.5" /> Missing
+                </span>
+              )}
+            </div>
+
+            <div className="flex items-center justify-between p-2 rounded bg-[var(--bg-input)] border border-[var(--border)]">
+              <span className="text-[var(--text-muted)]">MX Server:</span>
+              {dnsChecks.MX ? (
+                <span className="flex items-center text-emerald-400 font-bold gap-1">
+                  <CheckCircle2 className="w-3.5 h-3.5" /> Active
+                </span>
+              ) : (
+                <span className="flex items-center text-rose-400 font-bold gap-1">
+                  <XCircle className="w-3.5 h-3.5" /> None
+                </span>
+              )}
+            </div>
+
+            <div className="flex items-center justify-between p-2 rounded bg-[var(--bg-input)] border border-[var(--border)]">
+              <span className="text-[var(--text-muted)]">SPF Record:</span>
+              {dnsChecks.SPF ? (
+                <span className="flex items-center text-emerald-400 font-bold gap-1">
+                  <CheckCircle2 className="w-3.5 h-3.5" /> Pass
+                </span>
+              ) : (
+                <span className="flex items-center text-rose-400 font-bold gap-1">
+                  <XCircle className="w-3.5 h-3.5" /> Missing
+                </span>
+              )}
+            </div>
+
+            <div className="flex items-center justify-between p-2 rounded bg-[var(--bg-input)] border border-[var(--border)]">
+              <span className="text-[var(--text-muted)]">DMARC:</span>
+              {dnsChecks.DMARC ? (
+                <span className="flex items-center text-emerald-400 font-bold gap-1">
+                  <CheckCircle2 className="w-3.5 h-3.5" /> Protected
+                </span>
+              ) : (
+                <span className="flex items-center text-rose-400 font-bold gap-1">
+                  <XCircle className="w-3.5 h-3.5" /> Missing
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* IP Detail Finder Card */}
+        <div className="p-4 rounded-xl bg-[var(--bg-card)] border border-[var(--border)] shadow-[var(--shadow)] space-y-3 col-span-1 md:col-span-2 lg:col-span-1">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-1.5">
+              <MapPin className="w-4 h-4 text-emerald-400" />
+              IP Detail Finder
+            </span>
+            <span className="text-xs font-mono font-bold text-cyan-400">
+              {ip_details?.ip || 'N/A'}
+            </span>
+          </div>
+
+          <div className="space-y-1.5 text-xs text-[var(--text-muted)]">
+            <div className="flex justify-between border-b border-[var(--border)] pb-1">
+              <span>Location:</span>
+              <span className="font-semibold text-[var(--text-main)]">
+                {[ip_details?.geo?.city, ip_details?.geo?.country].filter(Boolean).join(', ') || 'Unknown'}
+              </span>
+            </div>
+            <div className="flex justify-between border-b border-[var(--border)] pb-1">
+              <span>ISP / Network:</span>
+              <span className="font-semibold text-[var(--text-main)] truncate max-w-[180px]">
+                {ip_details?.asn?.isp || ip_details?.asn?.org || 'Unknown'}
+              </span>
+            </div>
+            <div className="flex items-center gap-2 pt-1">
+              {ip_details?.is_proxy && (
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30">
+                  Proxy / VPN Detected
+                </span>
+              )}
+              {ip_details?.is_hosting && (
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                  Hosting Server IP
+                </span>
+              )}
+              {!ip_details?.is_proxy && !ip_details?.is_hosting && (
+                <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                  Direct Resident IP
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+
         {/* Layer 1: Rule Engine */}
         <div className="p-4 rounded-xl bg-[var(--bg-card)] border border-[var(--border)] shadow-[var(--shadow)] space-y-2">
           <div className="flex items-center justify-between">
@@ -106,21 +250,7 @@ export const ResultCard = ({ result }) => {
           </p>
         </div>
 
-        {/* Layer 3: ML Model Ensemble */}
-        <div className="p-4 rounded-xl bg-[var(--bg-card)] border border-[var(--border)] shadow-[var(--shadow)] space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-1.5">
-              <Cpu className="w-4 h-4 text-purple-500" />
-              ML Classifier (RF + XGB)
-            </span>
-            <span className="text-sm font-bold text-[var(--text-main)]">{breakdown.ml_model || 0} pts</span>
-          </div>
-          <p className="text-xs text-[var(--text-muted)]">
-            Random Forest & XGBoost Ensemble prediction score ({ml_model?.ml_score || 0}%).
-          </p>
-        </div>
-
-        {/* Layer 4: WHOIS Domain Age */}
+        {/* Layer 3: WHOIS Domain Age */}
         <div className="p-4 rounded-xl bg-[var(--bg-card)] border border-[var(--border)] shadow-[var(--shadow)] space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-1.5">
@@ -141,7 +271,7 @@ export const ResultCard = ({ result }) => {
           )}
         </div>
 
-        {/* Layer 5: VirusTotal Threat Intel */}
+        {/* Layer 4: VirusTotal Threat Intel */}
         <div className="p-4 rounded-xl bg-[var(--bg-card)] border border-[var(--border)] shadow-[var(--shadow)] space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-1.5">
@@ -155,7 +285,7 @@ export const ResultCard = ({ result }) => {
           </p>
         </div>
 
-        {/* Layer 6: AbuseIPDB Reputation */}
+        {/* Layer 5: AbuseIPDB Reputation */}
         <div className="p-4 rounded-xl bg-[var(--bg-card)] border border-[var(--border)] shadow-[var(--shadow)] space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-1.5">
