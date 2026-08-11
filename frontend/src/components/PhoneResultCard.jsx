@@ -1,5 +1,5 @@
 import React from 'react';
-import { Phone, Globe, Radio, AlertTriangle, CheckCircle, ShieldAlert, Clock, Hash, Info, ShieldCheck } from 'lucide-react';
+import { Phone, Globe, Radio, AlertTriangle, CheckCircle, ShieldAlert, Clock, Hash } from 'lucide-react';
 
 export const PhoneResultCard = ({ result }) => {
   if (!result) return null;
@@ -20,18 +20,6 @@ export const PhoneResultCard = ({ result }) => {
 
   return (
     <div className="w-full max-w-4xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-6 duration-500">
-      {/* Offline API Key Hint Badge */}
-      {result.offline_only && (
-        <div className="p-3.5 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-300 text-xs flex items-center justify-between shadow-sm">
-          <div className="flex items-center space-x-2">
-            <Info className="w-4 h-4 text-cyan-400 shrink-0" />
-            <span>
-              💡 Running on <strong>Offline Numint OSINT Engine</strong>. Set free API keys (<code className="bg-cyan-950/60 px-1 py-0.5 rounded text-cyan-200">NUMVERIFY_API_KEY</code>, <code className="bg-cyan-950/60 px-1 py-0.5 rounded text-cyan-200">IPQS_API_KEY</code>) for live global abuse lookup.
-            </span>
-          </div>
-        </div>
-      )}
-
       {/* Top Banner */}
       <div
         className={`p-6 rounded-2xl border transition-all duration-300 ${
