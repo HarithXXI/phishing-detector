@@ -1,0 +1,13 @@
+{
+  "name": "phishguard-dev",
+  "version": "3.2.0",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently \"cd backend && uvicorn app.main:app --reload --reload-dir app --port 8000\" \"cd frontend && npm run dev\"",
+    "dev:backend": "cd backend && uvicorn app.main:app --reload --reload-dir app --port 8000",
+    "dev:frontend": "cd frontend && npm run dev"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

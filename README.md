@@ -1,11 +1,11 @@
-# PhishGuard AI v3.1 - OSINT & Multi-Layer Threat Detection Engine 🛡️
+# PhishGuard AI v3.2 - OSINT & Multi-Layer Threat Detection Engine 🛡️
 
-![PhishGuard AI Banner](https://img.shields.io/badge/PhishGuard_AI-v3.1_OSINT-cyan?style=for-the-badge&logo=shield)
+![PhishGuard AI Banner](https://img.shields.io/badge/PhishGuard_AI-v3.2_OSINT-cyan?style=for-the-badge&logo=shield)
 ![Python FastAPI](https://img.shields.io/badge/Backend-FastAPI_0.110-009688?style=for-the-badge&logo=fastapi)
 ![React Vite](https://img.shields.io/badge/Frontend-React_18_Vite_6-61DAFB?style=for-the-badge&logo=react)
 ![Deployment](https://img.shields.io/badge/Deploy-Vercel_%2B_Render-000000?style=for-the-badge&logo=vercel)
 
-PhishGuard AI v3.1 is an enterprise-grade, multi-layer phishing threat detection and open-source intelligence (OSINT) analysis platform. It combines static rule engines, URL entropy analysis, threat intelligence APIs, domain infrastructure checkers, and LLM reasoning to evaluate links, text, emails, and phone numbers in real time.
+PhishGuard AI v3.2 is an enterprise-grade, multi-layer phishing threat detection and open-source intelligence (OSINT) analysis platform. It combines static rule engines, URL entropy analysis, threat intelligence APIs, domain infrastructure checkers, and LLM reasoning to evaluate links, text, emails, and phone numbers in real time.
 
 ---
 
@@ -24,11 +24,27 @@ PhishGuard AI v3.1 is an enterprise-grade, multi-layer phishing threat detection
 
 ---
 
-## 🎨 Unified Smart Input Box
+## ⚡ Instant Auto-Reload Dev Workflow (No Manual Restart)
 
-Single unified input field with instant input type auto-detection:
-- **Phone Numbers** (`10–15 digits`): Triggers `📱 Phone` OSINT analysis via `POST /api/phone-intel`.
-- **URLs / Scam Texts / Emails**: Triggers `🛡️ Threat` multi-layer analysis via `POST /api/analyze`.
+### 🛠️ Dev (auto-reload)
+Run both backend (`:8000`) and frontend (`:5173`) with a single command from the project root:
+
+```bash
+npm run dev  # starts backend :8000 with --reload + frontend :5173 with Vite HMR
+```
+
+- **Backend Auto-Reload**: FastAPI `--reload --reload-dir app` watches `backend/app/` for `.py` changes and auto-restarts instantly.
+- **Frontend HMR**: Vite updates the browser instantaneously when editing `frontend/src/` files.
+- **Note on `.env`**: Environment variables are loaded once at startup. If you edit `backend/.env`, restart the dev server once.
+
+### 🏭 Prod Build & Run
+```bash
+# Frontend build
+cd frontend && npm run build
+
+# Backend production runner
+cd backend && uvicorn app.main:app --host 0.0.0.0 --port 10000
+```
 
 ---
 
@@ -36,6 +52,7 @@ Single unified input field with instant input type auto-detection:
 
 ```text
 phishing-detector/
+├── package.json                  # Root runner script (concurrently dev launcher)
 ├── api/
 │   ├── index.py                  # Vercel proxy & lightweight API entry point
 │   ├── services/                 # OSINT services (DNS, IP, Phone, Harvester, Wfuzz)
@@ -46,13 +63,13 @@ phishing-detector/
 │   │   ├── config.py             # System settings & CORS configuration
 │   │   ├── routes/               # API endpoints (/api/analyze, /api/phone-intel, etc.)
 │   │   ├── services/             # Core detection services
-│   │   └── utils/scoring.py      # Proportional 100% exact-sum composite scoring engine
-│   ├── requirements.txt          # Python dependencies (dnspython, phonenumbers, fastapi)
+│   │   └── utils/scoring.py      # Composite scoring engine
+│   ├── requirements.txt          # Python dependencies (dnspython, tldextract, phonenumbers)
 │   └── .env.example
 ├── frontend/
 │   ├── src/
 │   │   ├── App.jsx               # React main component with auto-detection box
-│   │   ├── components/           # UI components (ResultCard, PhoneResultCard, etc.)
+│   │   ├── components/           # UI components (ResultCard, PhoneResultCard, DnsCard, etc.)
 │   │   └── utils/detectType.js   # Instant regex & input length type detector
 │   ├── package.json
 │   └── vite.config.js
@@ -60,32 +77,6 @@ phishing-detector/
 ├── render.yaml                   # Render deployment configuration
 └── README.md
 ```
-
----
-
-## 🛠️ Local Development & Testing
-
-### 1. Backend Setup
-```bash
-cd backend
-python -m venv venv
-# On Windows:
-.\venv\Scripts\activate
-# On Linux/macOS:
-source venv/bin/activate
-
-pip install -r requirements.txt
-uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
-```
-Interactive OpenAPI documentation will be available at: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
-
-### 2. Frontend Setup
-```bash
-cd frontend
-npm install
-npm run dev
-```
-Frontend development server will start at: [http://localhost:5173/](http://localhost:5173/)
 
 ---
 
