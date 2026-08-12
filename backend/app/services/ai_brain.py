@@ -35,7 +35,9 @@ Evaluation Rules:
 """
 
 
-async def analyze_ai_brain(text: str, extracted_info: Dict[str, Any] = None) -> Dict[str, Any]:
+from typing import Dict, Any, Optional
+
+async def analyze_ai_brain(text: str, extracted_info: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """
     Main AI reasoning function with Groq -> Gemini -> Clean Fallback.
     Never crashes, always returns dict with risk_score (0-40).
@@ -51,7 +53,7 @@ async def analyze_ai_brain(text: str, extracted_info: Dict[str, Any] = None) -> 
             "indicators": []
         }
 
-    groq_api_key = os.getenv("GROQ_API_KEY", "").strip()
+    groq_api_key = (os.getenv("GROQ_API_KEY") or "").strip()
 
     # ── Strategy 1: Groq LLM Primary ──
     if _HAS_GROQ and groq_api_key and groq_api_key != "your_groq_api_key_here":
@@ -72,7 +74,7 @@ async def analyze_ai_brain(text: str, extracted_info: Dict[str, Any] = None) -> 
             raw_resp = await asyncio.wait_for(asyncio.to_thread(_call_groq), timeout=6.0)
             
             # Clean json formatting
-            cleaned_resp = raw_resp.strip()
+            cleaned_resp = (raw_resp or "").strip()
             if cleaned_resp.startswith("```"):
                 cleaned_resp = cleaned_resp.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
             if cleaned_resp.startswith("json"):

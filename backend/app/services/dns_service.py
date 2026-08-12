@@ -124,7 +124,9 @@ async def enrich_dns(domain: Optional[str]) -> Dict[str, Any]:
     mx_valid = False
     try:
         mx_ans = resolver.resolve(clean_domain, "MX")
-        mx_list = [str(r.exchange).rstrip(".") for r in mx_ans]
+        for r in mx_ans:
+            ex = getattr(r, "exchange", r)
+            mx_list.append(str(ex).rstrip("."))
         mx_valid = len(mx_list) > 0
     except Exception:
         doh_mx = await resolve_doh_google(clean_domain, "MX")
@@ -138,7 +140,10 @@ async def enrich_dns(domain: Optional[str]) -> Dict[str, Any]:
     try:
         txt_ans = resolver.resolve(clean_domain, "TXT")
         for rdata in txt_ans:
-            txt_val = "".join(s.decode() if isinstance(s, bytes) else s for s in rdata.strings)
+            if hasattr(rdata, "strings"):
+                txt_val = "".join(s.decode() if isinstance(s, bytes) else str(s) for s in rdata.strings)
+            else:
+                txt_val = str(rdata)
             if "v=spf1" in txt_val.lower():
                 spf_pass = True
                 spf_str = txt_val
@@ -160,7 +165,10 @@ async def enrich_dns(domain: Optional[str]) -> Dict[str, Any]:
     try:
         dmarc_ans = resolver.resolve(f"_dmarc.{clean_domain}", "TXT")
         for rdata in dmarc_ans:
-            txt_val = "".join(s.decode() if isinstance(s, bytes) else s for s in rdata.strings)
+            if hasattr(rdata, "strings"):
+                txt_val = "".join(s.decode() if isinstance(s, bytes) else str(s) for s in rdata.strings)
+            else:
+                txt_val = str(rdata)
             if "v=DMARC1" in txt_val:
                 dmarc_protected = True
                 dmarc_str = txt_val

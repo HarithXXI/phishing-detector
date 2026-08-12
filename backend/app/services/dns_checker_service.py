@@ -2,7 +2,7 @@
 DNS Checker Service wrapper for v3.2
 """
 
-from app.services.dns_service import enrich_dns, check_dns_security if 'check_dns_security' in locals() else None
+from app.services.dns_service import enrich_dns
 
 async def check_dns_security(domain: str):
     return await enrich_dns(domain)

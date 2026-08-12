@@ -38,8 +38,14 @@ def calculate_final_score(
     vt_score = min(40, vt_malicious * 8)
     
     # AbuseIPDB: confidence * 0.35
-    abuse_conf = abuse_res.get("confidence", abuse_res.get("risk_score", abuse_res.get("abuseConfidenceScore", 0))) if isinstance(abuse_res, dict) else 0
-    abuse_score = min(35, int(abuse_conf * 0.35))
+    raw_abuse_conf = 0
+    if isinstance(abuse_res, dict):
+        raw_abuse_conf = abuse_res.get("confidence") or abuse_res.get("risk_score") or abuse_res.get("abuseConfidenceScore") or 0
+    try:
+        abuse_conf_val = float(raw_abuse_conf)
+    except (ValueError, TypeError):
+        abuse_conf_val = 0.0
+    abuse_score = min(35, int(abuse_conf_val * 0.35))
 
     # Obfuscation indicator boost from extractor if URL is heavily obfuscated
     obfuscation_boost = 10 if extracted.get("has_obfuscation") and ai_score > 0 else 0
