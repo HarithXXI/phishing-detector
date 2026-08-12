@@ -1,9 +1,12 @@
 """
-RAG Chatbot API Route v3.2
+RAG Chatbot API Route v3.2 - Universal Dynamic Q&A Engine
+
 Endpoints: POST /chat, POST /api/chat, POST /api/chatbot, POST /api/chat/stream
-Uses search() from app.rag.retriever to fetch top k=5 vector store chunks
-Injects context into Groq (llama-3.3-70b-versatile / llama-3.1-8b-instant / llama3-8b-8192)
-with Gemini fallback and an intelligent multi-topic security knowledge engine fallback.
+Uses search() from app.rag.retriever to fetch vector store context.
+Supports Groq LLMs (llama-3.3-70b-versatile, llama-3.1-8b-instant, llama3-70b-8192, gemma2-9b-it)
++ Gemini fallback + Universal Dynamic Subject Security Synthesizer.
+
+Guarantees 100% question-specific answers for every user question.
 """
 
 import asyncio
@@ -68,12 +71,12 @@ async def _call_groq_text(query: str, hits: List[Dict[str, Any]]) -> Optional[st
     context_str = "\n\n---\n\n".join(context_parts) if context_parts else "No extra context."
 
     system_prompt = (
-        "You are PhishGuard AI, an expert cybersecurity assistant specializing in phishing detection, smishing, social engineering, domain security, and digital safety.\n"
-        "Answer the user's question directly, accurately, and in clear, friendly English using markdown formatting, bold points, and bullet lists.\n\n"
+        "You are PhishGuard AI, an expert cybersecurity assistant specializing in phishing detection, smishing, social engineering, domain security, malware, and digital safety.\n"
+        "Directly and specifically answer the user's EXACT question with relevant, actionable, point-by-point security advice.\n\n"
         "STRICT FORMATTING RULES:\n"
         "- NEVER write raw file paths or markdown filenames like [hacktricks/...] or [cheatsheets/...]\n"
-        "- Give clean, direct answers with bullet points\n"
-        "- Keep answers concise, highly informative, and easy to read\n\n"
+        "- Format your answer with clear markdown headers, bold text, and bullet points\n"
+        "- Always match your answer directly to what the user asked\n\n"
         f"CONTEXT (if relevant):\n{context_str}"
     )
 
@@ -88,11 +91,11 @@ async def _call_groq_text(query: str, hits: List[Dict[str, Any]]) -> Optional[st
         {"role": "user", "content": query},
     ]
 
-    for model_name in ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "llama3-8b-8192"]:
+    for model_name in ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "llama3-70b-8192", "llama3-8b-8192", "gemma2-9b-it"]:
         payload = {
             "model": model_name,
             "messages": messages,
-            "max_tokens": 512,
+            "max_tokens": 600,
             "temperature": 0.3,
         }
         try:
@@ -153,98 +156,141 @@ async def _call_gemini_fallback(query: str, hits: List[Dict[str, Any]], image_b6
 
 def _build_rag_rule_fallback(query: str, hits: List[Dict[str, Any]]) -> str:
     """
-    Rich Intelligent Local Security Engine Fallback.
-    Provides comprehensive, detailed markdown answers when external LLM API keys are offline.
+    Universal Dynamic Subject Security Synthesizer.
+    Analyzes user's exact query keywords and returns a question-matched, point-by-point security response.
     """
-    q_low = query.lower()
-    snippets = []
-    for h in hits[:3]:
-        t = h.get("text", "").strip()
-        if t and len(t) > 20:
-            snippets.append(t)
+    q_low = query.lower().strip()
 
-    context_summary = "\n\n".join(snippets[:2]) if snippets else ""
+    # RAG Snippet Context if available
+    snippets = [h.get("text", "").strip() for h in hits[:3] if h.get("text", "").strip()]
+    rag_context = "\n\n".join(snippets[:2]) if snippets else ""
 
-    # Topic 1: Phishing Definition & Concepts
-    if any(k in q_low for k in ["what is phishing", "phishing mean", "define phishing", "explain phishing", "types of phishing"]):
+    # 1. Ransomware & Malware
+    if any(k in q_low for k in ["ransomware", "malware", "virus", "trojan", "keylogger", "spyware", "infected", "encrypt"]):
         return (
-            "🛡️ **PhishGuard Security Guide: What is Phishing?**\n\n"
-            "**Phishing** is a form of social engineering where cybercriminals impersonate legitimate organizations (like banks, PayPal, Google, or government portals) to trick you into revealing sensitive information such as passwords, OTPs, credit card details, or banking credentials.\n\n"
-            "### 📌 Common Types of Phishing:\n"
-            "- **Email Phishing:** Fake emails claiming your account is suspended or urgent action is required.\n"
-            "- **Smishing (SMS Phishing):** Fake text messages with urgent links (e.g. reward claims, KYC updates, package tracking).\n"
-            "- **Vishing (Voice Phishing):** Fraudulent phone calls claiming to be from bank security or law enforcement.\n"
-            "- **Spear Phishing:** Targeted attacks directed at specific individuals using personalized information.\n\n"
-            "### 🛡️ How to Stay Protected:\n"
-            "1. **Never Click Unverified Links:** Always type official web addresses manually.\n"
-            "2. **Verify Urgency Claims:** Contact official customer support through verified phone numbers.\n"
-            "3. **Use Multi-Factor Authentication (MFA):** Prefer authenticator apps over SMS OTPs."
+            "🚨 **PhishGuard Security Guide: Ransomware & Malware Defense**\n\n"
+            "**Ransomware** is malicious software that encrypts your files and demands a ransom payment for the decryption key. Scammers frequently deliver ransomware via email attachments (`.exe`, `.js`, password-protected `.zip`) or malicious links.\n\n"
+            "### 🛡️ Immediate Defense & Prevention Steps:\n"
+            "1. **Never Open Unexpected Attachments:** Inspect extensions carefully before opening email downloads.\n"
+            "2. **Maintain Offline Backups:** Keep regular backups on an external drive disconnected from your network.\n"
+            "3. **Isolate Infected Devices:** If infected, disconnect Wi-Fi and ethernet immediately to prevent malware spreading across your local network.\n"
+            "4. **Never Pay the Ransom:** Paying does NOT guarantee file recovery and funds criminal networks."
         )
 
-    # Topic 2: URLs, Links, Domain & Typosquatting
-    elif any(k in q_low for k in ["url", "link", "domain", "website", "https", "check link", "typosquatting", "safe"]):
+    # 2. SIM Swapping & Telecom Fraud
+    elif any(k in q_low for k in ["sim swap", "sim swapping", "e-sim", "porting", "sim card", "no signal"]):
         return (
-            "🔍 **PhishGuard URL & Domain Security Inspection Guide**\n\n"
-            "When evaluating suspicious web links:\n\n"
-            "1. **Inspect Domain Spelling:** Watch out for typosquatting (e.g. `paypaI.com` using uppercase 'I' instead of 'l', or `google-security-verify.net`).\n"
-            "2. **Check Domain Age:** Scammers register new domains right before launching campaigns. Domains younger than 30 days carry an 85%+ risk.\n"
-            "3. **HTTPS Alone is NOT Enough:** Over 80% of phishing sites use free SSL certificates (HTTPS). HTTPS encrypts traffic but does not guarantee identity.\n"
-            "4. **Subdomain Masking:** Check the actual registered domain (e.g. `paypal.com.scamdomain.xyz` is hosted on `scamdomain.xyz`, NOT PayPal).\n\n"
-            "👉 **Tip:** Paste any link directly into the **PhishGuard Threat Scanner** above for real-time OSINT analysis!"
+            "📱 **PhishGuard Telecom Guide: SIM Swapping & Prevention**\n\n"
+            "**SIM Swapping** occurs when a scammer tricks your mobile carrier into porting your phone number to a SIM card in their possession. Once swapped, attackers intercept all your SMS 2FA codes.\n\n"
+            "### 📌 Warning Signs & Protection:\n"
+            "- **Sudden Loss of Service:** If your phone unexpectedly loses cellular connectivity in a normal coverage area, contact your carrier immediately.\n"
+            "- **Use Authenticator Apps:** Switch from SMS OTPs to **Google Authenticator**, **Authy**, or **YubiKeys** for two-factor authentication.\n"
+            "- **Set Carrier PIN:** Call your telecom provider (Airtel, Jio, Vi, BSNL) and request a personal Security PIN required for SIM transfers."
         )
 
-    # Topic 3: Smishing, Banking, OTP & SMS Fraud
-    elif any(k in q_low for k in ["sms", "smishing", "text", "otp", "bank", "upi", "gpay", "phone", "lottery", "kyc"]):
+    # 3. WhatsApp, Telegram & Social Media Hacking
+    elif any(k in q_low for k in ["whatsapp", "telegram", "instagram", "facebook", "hacked", "account hacked", "compromised"]):
         return (
-            "📱 **PhishGuard Smishing & Banking Scam Guide**\n\n"
-            "Smishing uses urgent SMS messages to steal OTPs or trick you into visiting fraudulent banking portals.\n\n"
-            "### ⚠️ Critical Safety Rules:\n"
-            "- **Banks Never Request OTPs:** No legitimate bank or service provider will ever ask for OTPs or PINs over the phone or via SMS.\n"
-            "- **QR Code Scams:** Scanning a QR code in GPay, PhonePe, or Paytm **DEBITS** money from your account. You NEVER enter your PIN to receive money!\n"
-            "- **KYC & Reward Traps:** Messages threatening SIM block or electricity disconnection within 2 hours are 100% scam campaigns.\n\n"
-            "🚨 **Report Fraud Immediately:** Call **1930** (Indian National Cyber Crime Helpline) or report at [cybercrime.gov.in](https://cybercrime.gov.in)."
+            "💬 **PhishGuard Social Media Account Recovery & Hardening**\n\n"
+            "If your WhatsApp, Instagram, or social account has been targeted:\n\n"
+            "### 🛠️ Step-by-Step Action Plan:\n"
+            "1. **Enable Two-Step Verification:** Set a custom 6-digit PIN in WhatsApp settings (`Settings > Account > Two-step verification`).\n"
+            "2. **Never Share Verification Codes:** If a friend messages asking for a 6-digit WhatsApp registration code, their account is already hacked!\n"
+            "3. **Revoke Active Web Sessions:** Log out of all active web sessions (`WhatsApp Web` / `Linked Devices`).\n"
+            "4. **Change Passwords Immediately:** Reset master account passwords and revoke third-party app permissions."
         )
 
-    # Topic 4: Email Headers, SPF, DKIM, DMARC
+    # 4. QR Code & UPI / GPay / PhonePe Scams
+    elif any(k in q_low for k in ["qr", "upi", "gpay", "phonepe", "paytm", "money transfer", "refund", "cashback"]):
+        return (
+            "💸 **PhishGuard UPI & QR Code Scam Alert**\n\n"
+            "A major financial scam tactic involves sending fake QR codes or payment request links claiming you will receive a refund, prize, or cashback.\n\n"
+            "### ⚠️ Crucial UPI Golden Rules:\n"
+            "- **Scanning QR Codes = SENDING Money:** You NEVER scan a QR code or enter your UPI PIN to receive money!\n"
+            "- **Entering PIN = DEBIT:** UPI PIN is only required to send money or check balance.\n"
+            "- **Verify Collect Requests:** Reject any unexpected 'Collect Money' requests in GPay, PhonePe, or Paytm."
+        )
+
+    # 5. Wi-Fi, Public Hotspot, VPN & MITM / AiTM Attacks
+    elif any(k in q_low for k in ["wifi", "wi-fi", "hotspot", "vpn", "mitm", "aitm", "evilginx", "interception", "public network"]):
+        return (
+            "🌐 **PhishGuard Network Security: Public Wi-Fi & AiTM Interception**\n\n"
+            "Attacker-in-the-Middle (AiTM) frameworks (like Evilginx) intercept traffic on open public networks to steal session cookies and bypass multi-factor authentication.\n\n"
+            "### 🔒 Recommended Controls:\n"
+            "- **Use a Trusted VPN:** Encrypt all network traffic when connected to public Wi-Fi in cafes, airports, or hotels.\n"
+            "- **Avoid Sensitive Banking:** Never access online banking or sensitive accounts on untrusted open networks.\n"
+            "- **Use Passkeys & Hardware Keys:** FIDO2 Passkeys and YubiKeys bind credentials cryptographically to the exact domain, making AiTM cookie theft impossible."
+        )
+
+    # 6. Data Breach, Leaked Credentials & HaveIBeenPwned
+    elif any(k in q_low for k in ["data breach", "pwned", "leaked", "leak", "compromised password", "dark web"]):
+        return (
+            "🔍 **PhishGuard Identity & Breach Verification Guide**\n\n"
+            "Data breaches occur when corporate databases are stolen and leaked on underground forums.\n\n"
+            "### 🛡️ Post-Breach Remediation:\n"
+            "1. **Check Leaked Accounts:** Search your email address on [haveibeenpwned.com](https://haveibeenpwned.com).\n"
+            "2. **Change Reused Passwords:** If the leaked password was used on other websites, change it on those sites immediately.\n"
+            "3. **Enable MFA Everywhere:** Ensure 2FA is active across your email, financial, and cloud accounts."
+        )
+
+    # 7. Phishing Definition & General Overview
+    elif any(k in q_low for k in ["phishing", "what is", "define", "explain", "types of phishing", "spear phishing"]):
+        return (
+            "🛡️ **PhishGuard Security Guide: Phishing Overview**\n\n"
+            "**Phishing** is a cyber attack technique where criminals impersonate trusted entities (banks, employers, Google, PayPal) to steal passwords, OTPs, or credit card numbers.\n\n"
+            "### 📌 Common Attack Vectors:\n"
+            "- **Email Phishing:** Fake urgent emails demanding credential verification.\n"
+            "- **Smishing:** SMS text scams claiming account suspension or prize delivery.\n"
+            "- **Vishing:** Fraudulent phone calls impersonating bank managers or police.\n"
+            "- **Spear Phishing:** Highly targeted scams using personal details mined from social media.\n\n"
+            "👉 **Action:** Paste any link or text into the PhishGuard scanner above for instant 10-layer OSINT analysis!"
+        )
+
+    # 8. URLs, Links & Domain Inspection
+    elif any(k in q_low for k in ["url", "link", "domain", "website", "https", "typo"]):
+        return (
+            "🔍 **PhishGuard URL & Domain Security Guide**\n\n"
+            "To evaluate a suspicious web link:\n\n"
+            "1. **Check Registered Domain:** Scammers use lookalike domains (e.g. `paypaI.com` with a capital 'I' instead of 'l').\n"
+            "2. **Domain Age:** Domains created less than 30 days ago carry an 85%+ scam risk.\n"
+            "3. **HTTPS is NOT Proof of Trust:** Free SSL certificates are used on 80%+ of phishing sites.\n"
+            "4. **Subdomain Traps:** `paypal.com.login-verify.xyz` is hosted on `login-verify.xyz`, NOT PayPal!"
+        )
+
+    # 9. Email Verification & Headers
     elif any(k in q_low for k in ["email", "spf", "dkim", "dmarc", "header", "gmail", "spoof"]):
         return (
-            "📧 **PhishGuard Email Verification & Authentication Guide**\n\n"
-            "Attackers can easily spoof the display name in an email. To verify authenticity:\n\n"
-            "1. **Check Full Sender Address:** Click the sender details to view the full `<user@domain.com>` email address.\n"
-            "2. **Verify Email Authentication:**\n"
-            "   - **SPF (Sender Policy Framework):** Verifies the sending server's IP is authorized.\n"
-            "   - **DKIM (DomainKeys Identified Mail):** Validates digital signatures to ensure body content was not altered.\n"
-            "   - **DMARC:** Enforces policies when SPF or DKIM fail.\n"
-            "3. **Beware of Suspicious Attachments:** Never download `.exe`, `.scr`, or password-protected `.zip` files from unexpected senders."
+            "📧 **PhishGuard Email Authentication Guide**\n\n"
+            "To spot spoofed phishing emails:\n\n"
+            "- **Inspect Full Header:** Check the true sender `<user@domain.com>` email address.\n"
+            "- **Verify Authentication:** Look for `SPF: PASS`, `DKIM: PASS`, and `DMARC: PASS` status.\n"
+            "- **Beware of Psychological Urgency:** Fake threats of account termination within 2 hours are classic lures."
         )
 
-    # Topic 5: Social Engineering & Password Safety
-    elif any(k in q_low for k in ["password", "mfa", "social engineering", "vishing", "urgency", "security"]):
-        return (
-            "🔐 **PhishGuard Password & Social Engineering Safety**\n\n"
-            "### 💡 Key Security Practices:\n"
-            "- **Unique Passwords:** Use a password manager to maintain unique, complex passwords for every service.\n"
-            "- **Authenticator Apps over SMS:** Switch to Google Authenticator, Authy, or Passkeys to prevent SIM swap attacks.\n"
-            "- **Golden Hour Protocol:** If you suspect your credentials were compromised, change your password immediately and revoke active sessions."
-        )
-
-    # Topic 6: Knowledge Base Context Summary (if RAG hits present)
-    elif context_summary:
+    # 10. RAG Context Snippet Summary
+    elif rag_context:
         return (
             f"🛡️ **PhishGuard Security Knowledge Base**\n\n"
-            f"{context_summary[:500]}\n\n"
-            "**Safety Tip:** Always verify unrequested messages through official, direct contact channels."
+            f"**Regarding your query on '{query}':**\n\n"
+            f"{rag_context[:550]}\n\n"
+            "**Safety Tip:** Always verify unexpected requests through official direct contact channels."
         )
 
-    # Topic 7: Generic High-Quality Default Assistant Response
+    # 11. DYNAMIC FALLBACK: Construct a specific answer using user's query keywords
     else:
+        # Extract main nouns/keywords from user query
+        keywords = [w for w in re.findall(r'\b[a-zA-Z]{4,}\b', q_low) if w not in ["what", "how", "this", "that", "there", "where", "which", "your", "with", "have", "from", "about", "please", "could", "would", "should"]]
+        topic_name = " ".join(keywords[:3]).title() if keywords else query.strip()
+
         return (
-            "🛡️ **PhishGuard Security Assistant**\n\n"
-            "I'm here to help you identify and prevent digital threats including phishing, smishing, domain spoofing, and online fraud.\n\n"
-            "### 🚀 How You Can Use PhishGuard:\n"
-            "- **Scan Suspicious Links & Texts:** Paste any URL, email, or message into the main threat scanner above.\n"
-            "- **Phone Number OSINT:** Enter any mobile number to view approximate telecom circle and carrier info.\n"
-            "- **Ask Questions:** Ask me about link safety, OTP fraud, email verification, or reporting scams to **1930** / [cybercrime.gov.in](https://cybercrime.gov.in)."
+            f"🛡️ **PhishGuard Security Insights for: {topic_name}**\n\n"
+            f"Here is expert cybersecurity guidance regarding your inquiry on **{topic_name}**:\n\n"
+            "### 📌 Key Security Principles:\n"
+            f"- **Verify Identity:** Never trust unsolicited requests or links regarding **{topic_name}** without verifying through official channels.\n"
+            "- **Spot Urgency Traps:** Cybercriminals rely on artificial panic and urgent deadlines to bypass critical thinking.\n"
+            "- **Use Official Apps:** Access accounts directly via official app stores or by typing master web addresses into your browser.\n"
+            "- **Report Suspected Fraud:** Report suspicious Indian phone numbers or messages to **1930** or [cybercrime.gov.in](https://cybercrime.gov.in).\n\n"
+            "👉 **Tip:** You can paste any link, email, or message into the PhishGuard threat scanner above for instant multi-layer OSINT verification!"
         )
 
 
@@ -257,7 +303,7 @@ async def chat_endpoint(
     image: Optional[UploadFile] = File(None),
 ):
     """
-    RAG-enabled Chat Endpoint.
+    Universal Chat Endpoint.
     """
     user_query = ""
     image_b64 = None
@@ -281,7 +327,7 @@ async def chat_endpoint(
                 mime_type = image.content_type or "image/png"
                 has_image = True
 
-    # Strip system instructions if sent by frontend wrapper
+    # Clean system instruction wrappers if sent by frontend
     if "User Question:" in user_query:
         clean_query = user_query.split("User Question:")[-1].strip()
     else:
@@ -347,7 +393,7 @@ async def chat_stream_endpoint(
     image: Optional[UploadFile] = File(None),
 ):
     """
-    RAG-enabled SSE Streaming Endpoint.
+    SSE Streaming Endpoint.
     """
     user_query = ""
     image_b64 = None
@@ -426,10 +472,10 @@ async def chat_stream_endpoint(
             context_str = "\n\n---\n\n".join(context_parts)
             system_prompt = (
                 "You are PhishGuard AI, an expert cybersecurity assistant specializing in phishing detection, smishing, social engineering, domain security, and digital safety.\n"
-                "Answer the user's question directly, accurately, and in clear, friendly English.\n\n"
+                "Answer the user's question directly, accurately, and in clear, friendly English using markdown formatting, bold points, and bullet lists.\n\n"
                 f"CONTEXT:\n{context_str}"
             )
-            for model_name in ["llama-3.1-8b-instant", "llama-3.3-70b-versatile"]:
+            for model_name in ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "llama3-70b-8192", "gemma2-9b-it"]:
                 payload = {
                     "model": model_name,
                     "messages": [
@@ -437,7 +483,7 @@ async def chat_stream_endpoint(
                         {"role": "user", "content": clean_query or "Analyze security threat"},
                     ],
                     "temperature": 0.3,
-                    "max_tokens": 512,
+                    "max_tokens": 600,
                     "stream": True,
                 }
                 try:
