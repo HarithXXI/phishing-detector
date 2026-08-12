@@ -200,16 +200,17 @@ def _evaluate_smart_intents(query: str) -> Optional[str]:
         )
 
     # 2. Math Calculations
-    math_match = re.search(r'^\s*(\d+(?:\.\d+)?)\s*([\+\-\*\/\%])\s*(\d+(?:\.\d+)?)\s*$', q_low)
+    math_match = re.search(r'^\s*(\d+(?:\.\d+)?)\s*([\+\-\*/%])\s*(\d+(?:\.\d+)?)\s*$', q_low)
     if math_match:
         n1 = float(math_match.group(1))
         op = math_match.group(2)
         n2 = float(math_match.group(3))
+        ans: Any = "Calculation Error"
         if op == '+': ans = n1 + n2
         elif op == '-': ans = n1 - n2
         elif op == '*': ans = n1 * n2
         elif op == '/': ans = n1 / n2 if n2 != 0 else "Error (Division by zero)"
-        elif op == '%': ans = n1 % n2
+        elif op == '%': ans = n1 % n2 if n2 != 0 else "Error (Modulo by zero)"
         return f"🔢 **Math Answer:** `{n1} {op} {n2} = {ans}`"
 
     return None
