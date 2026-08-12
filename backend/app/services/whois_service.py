@@ -60,7 +60,10 @@ def check_domain_age(domain_or_url: str) -> Dict[str, Any]:
     try:
         print(f"[WHOIS Service] Querying WHOIS for {domain}...")
         w = whois.whois(domain)
-        creation_date = w.creation_date
+        if isinstance(w, dict):
+            creation_date = w.get("creation_date")
+        else:
+            creation_date = getattr(w, "creation_date", None)
 
         if isinstance(creation_date, list) and len(creation_date) > 0:
             creation_date = creation_date[0]
