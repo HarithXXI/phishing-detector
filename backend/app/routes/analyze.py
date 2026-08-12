@@ -1,51 +1,36 @@
 """
-Analysis Route
+Analysis Router v3.2 - Generic AI-Driven Pipeline
 
-POST /analyze — Orchestrates all four detection layers concurrently
-with strict timeouts (8s VT/AbuseIPDB, 10s Gemini) so slow APIs never block.
+Accepts input text (URL, SMS, email, text), expands short/obfuscated URLs,
+runs DNS, IP, WHOIS, VirusTotal, AbuseIPDB, and Groq/Gemini AI brain in parallel.
+Never 500s on any service failure.
 """
 
 import logging
-import re
 import asyncio
+import httpx
+from typing import Dict, Any, List
 from fastapi import APIRouter, UploadFile, File, Form
 from pydantic import BaseModel
 
 log = logging.getLogger(__name__)
 
-from app.services.rule_engine import check_rules
-from app.services.url_heuristic import check_url_heuristics
+from app.utils.extractor import extract_all, extract_domain_from_url
+from app.services.dns_service import enrich_dns
+from app.services.ip_service import enrich_ip
+from app.services.ai_brain import analyze_ai_brain
+from app.services.whois_service import check_domain_age
 from app.services.virustotal_service import check_virustotal
 from app.services.abuseipdb_service import check_abuseipdb
-from app.services.gemini_service import analyze_with_gemini, analyze_image_vision
-from app.services.whois_service import check_domain_age
 from app.services.ml_service import predict_ml
 from app.database import get_cached_scan, save_scan, get_recent_scans
-from app.utils.scoring import calculate_composite_score
-
-# Optional OSINT services — gracefully degraded if not installed
-try:
-    from app.services.dns_checker_service import check_dns_security
-except ImportError:
-    async def check_dns_security(domain: str) -> dict:  # type: ignore[misc]
-        return {}
-try:
-    from app.services.ip_detail_service import get_ip_details
-except ImportError:
-    async def get_ip_details(target: str) -> dict:  # type: ignore[misc]
-        return {}
-try:
-    from app.services.harvester_service import run_harvester
-except ImportError:
-    async def run_harvester(domain: str) -> dict:  # type: ignore[misc]
-        return {}
-try:
-    from app.services.wfuzz_service import run_wfuzz
-except ImportError:
-    async def run_wfuzz(url: str) -> dict:  # type: ignore[misc]
-        return {}
+from app.utils.final_scoring import calculate_final_score
 
 router = APIRouter(tags=["Analysis"])
+
+
+class AnalyzeRequest(BaseModel):
+    text: str
 
 
 @router.get("/history")
@@ -55,324 +40,202 @@ async def get_scan_history(limit: int = 10):
     return {"status": "success", "count": len(scans), "scans": scans}
 
 
-class AnalyzeRequest(BaseModel):
-    text: str
-
-
-def _extract_ips(text: str) -> list[str]:
-    """Pull valid IPv4 addresses from text."""
-    return re.findall(
-        r"\b(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\b",
-        text,
-    )
-
-
-def _extract_urls(text: str) -> list[str]:
-    """Pull URLs and bare domains from text."""
-    full_urls = re.findall(r"https?://[^\s<>\"']+", text, re.IGNORECASE)
-    if full_urls:
-        return full_urls
-
-    bare_domains = re.findall(
-        r"\b(?:[a-z0-9](?:[a-z0-9\-]{0,61}[a-z0-9])?\.)+(?:com|org|net|gov|edu|io|info|work|site|online|tech|app|xyz|top|live|me|co|in|ly)(?:/[^\s<>\"']*)?\b",
-        text,
-        re.IGNORECASE,
-    )
-    return [f"https://{d}" if not d.startswith("http") else d for d in bare_domains]
+async def _expand_url(url: str) -> str:
+    """Expand shortened/obfuscated URL by following redirects (4s timeout)."""
+    if not url:
+        return ""
+    try:
+        async with httpx.AsyncClient(follow_redirects=True, timeout=4.0, headers={"User-Agent": "PhishGuard/3.2"}) as client:
+            resp = await client.head(url)
+            if resp.status_code >= 400:
+                resp = await client.get(url)
+            return str(resp.url)
+    except Exception as e:
+        log.debug(f"[URL Expand Note] Could not expand {url}: {e}")
+        return url
 
 
 @router.post("/analyze")
 async def analyze_input(payload: AnalyzeRequest):
     """
-    Main analysis endpoint. Checks SQLite cache first, then runs all 6 detection layers.
+    Main analysis endpoint using generic 3-layer architecture.
     """
     text = payload.text.strip()
-    print(f"[API ANALYZE ENDPOINT] Received request (len={len(text)}): '{text[:60]}...'")
-
     if not text:
-        return {"error": "Please enter text"}
+        return {"error": "Please enter text to analyze"}
 
-    # ── Check SQLite Cache First ──
+    # ── Step 1: Check SQLite Cache ──
     cached_result = get_cached_scan(text)
     if cached_result:
         return cached_result
 
-    detection_flow = []
+    # ── Step 2: Generic Extractor ──
+    extracted = extract_all(text)
+    primary_domain = extracted.get("primary_domain")
+    primary_url = extracted.get("primary_url")
+    final_url = primary_url
 
-    # ── Layer 1: Rule Engine ──
-    rule_risks = check_rules(text)
-    detection_flow.append({
-        "layer": "Rule-Based Engine",
-        "status": "completed",
-        "findings": len(rule_risks),
-    })
+    # Expand obfuscated/shortened URLs if detected
+    if extracted.get("has_obfuscation") and primary_url:
+        expanded = await _expand_url(primary_url)
+        if expanded and expanded != primary_url:
+            final_url = expanded
+            expanded_domain = extract_domain_from_url(expanded)
+            if expanded_domain:
+                primary_domain = expanded_domain
+                extracted["primary_domain"] = expanded_domain
+                if expanded_domain not in extracted["domains"]:
+                    extracted["domains"].append(expanded_domain)
 
-    # ── Layer 2: URL Heuristics ──
-    url_risks, extracted_urls = check_url_heuristics(text)
-    detection_flow.append({
-        "layer": "URL Heuristic Engine",
-        "status": "completed",
-        "findings": len(url_risks),
-        "urls_found": len(extracted_urls),
-    })
+    # ── Step 3: Parallel Layer B (Enrichers) + Layer C (AI Brain) ──
+    async def _safe_dns() -> Dict[str, Any]:
+        try:
+            return await enrich_dns(primary_domain)
+        except Exception as e:
+            log.warning(f"[DNS Service Error]: {e}")
+            return {"is_applicable": False, "risk": 0, "status": "DNS Lookup Failed", "checks": {}}
 
-    # ── Layer 3: WHOIS Domain Age & Layer 4: ML Prediction (Instant) ──
-    target_domain = extracted_urls[0] if extracted_urls else (text if len(text) < 100 and "." in text and not " " in text else "")
-    whois_res = check_domain_age(target_domain) if target_domain else {"domain": "", "age_days": None, "creation_date": None, "risk": "LOW", "score": 0, "reason": "No domain found"}
-    ml_res = predict_ml(target_domain) if target_domain else {"is_phishing": False, "ml_score": 0, "confidence": 0, "model": "ML Ensemble", "reasons": []}
+    async def _safe_ip() -> Dict[str, Any]:
+        try:
+            return await enrich_ip(primary_domain or (extracted["ips"][0] if extracted["ips"] else None))
+        except Exception as e:
+            log.warning(f"[IP Service Error]: {e}")
+            return {"is_applicable": False, "risk": 0, "status": "IP Lookup Failed"}
 
-    detection_flow.append({
-        "layer": "WHOIS Domain Age Service",
-        "status": "completed",
-        "domain": whois_res.get("domain"),
-        "age_days": whois_res.get("age_days"),
-        "risk": whois_res.get("risk"),
-    })
+    async def _safe_whois() -> Dict[str, Any]:
+        if not primary_domain:
+            return {"domain": "", "age_days": None, "risk": 0, "reason": "No domain"}
+        try:
+            return await asyncio.to_thread(check_domain_age, primary_domain)
+        except Exception as e:
+            log.warning(f"[WHOIS Service Error]: {e}")
+            return {"domain": primary_domain, "age_days": None, "risk": 0, "reason": "WHOIS Lookup Failed"}
 
-    detection_flow.append({
-        "layer": "ML Model Ensemble (Random Forest + XGBoost)",
-        "status": "completed",
-        "ml_score": ml_res.get("ml_score"),
-        "model": ml_res.get("model"),
-    })
+    async def _safe_vt() -> Dict[str, Any]:
+        target = primary_url or primary_domain
+        if not target:
+            return {"malicious": 0, "suspicious": 0, "risk": 0}
+        try:
+            return await asyncio.wait_for(check_virustotal(target), timeout=6.0)
+        except Exception as e:
+            log.warning(f"[VirusTotal Error]: {e}")
+            return {"malicious": 0, "suspicious": 0, "risk": 0}
 
-    # ── Layers 5-10: Threat Intel + AI + OSINT (all concurrent) ──
-    extracted_ips = _extract_ips(text)
-    target_for_osint = (
-        re.sub(r'^https?://', '', extracted_urls[0]).split('/')[0]
-        if extracted_urls else
-        (text.strip() if '.' in text and ' ' not in text and len(text) < 100 else '')
+    async def _safe_abuse() -> Dict[str, Any]:
+        target = (extracted["ips"][0] if extracted["ips"] else None) or primary_domain
+        if not target:
+            return {"confidence": 0, "risk": 0}
+        try:
+            return await asyncio.wait_for(check_abuseipdb(target), timeout=6.0)
+        except Exception as e:
+            log.warning(f"[AbuseIPDB Error]: {e}")
+            return {"confidence": 0, "risk": 0}
+
+    async def _safe_ai() -> Dict[str, Any]:
+        try:
+            return await analyze_ai_brain(text, extracted)
+        except Exception as e:
+            log.warning(f"[AI Brain Error]: {e}")
+            return {"is_phishing": False, "confidence": 0, "risk_score": 0, "attack_vector": "Legitimate", "reason": "AI Error"}
+
+    # Execute all 6 services concurrently
+    dns_res, ip_res, whois_res, vt_res, abuse_res, ai_res = await asyncio.gather(
+        _safe_dns(), _safe_ip(), _safe_whois(), _safe_vt(), _safe_abuse(), _safe_ai()
     )
 
-    async def _safe_vt() -> dict:
-        try:
-            return await asyncio.wait_for(_run_virustotal(extracted_urls, text), timeout=8.0)
-        except asyncio.TimeoutError:
-            log.warning("[VT] Request timed out after 8s")
-            return {"malicious": 0, "suspicious": 0, "error": "VirusTotal request timed out (8s limit)"}
-        except Exception as exc:
-            log.exception("[VT] Exception: %s", exc)
-            return {"malicious": 0, "suspicious": 0, "error": f"VirusTotal error: {exc}"}
+    # ── Step 4: Final AI-Driven Composite Scoring ──
+    scoring = calculate_final_score(extracted, dns_res, ip_res, whois_res, vt_res, abuse_res, ai_res)
 
-    async def _safe_abuse() -> dict:
-        try:
-            return await asyncio.wait_for(_run_abuseipdb(extracted_ips, extracted_urls, text), timeout=8.0)
-        except asyncio.TimeoutError:
-            log.warning("[AbuseIPDB] Request timed out after 8s")
-            return {"abuseConfidenceScore": 0, "totalReports": 0, "risk_score": 5, "error": "AbuseIPDB request timed out (8s limit)"}
-        except Exception as exc:
-            log.exception("[AbuseIPDB] Exception: %s", exc)
-            return {"abuseConfidenceScore": 0, "totalReports": 0, "risk_score": 5, "error": f"AbuseIPDB error: {exc}"}
+    # Legacy detection flow list for UI stepper
+    detection_flow = [
+        {"layer": "Generic Extractor", "status": "completed", "findings": len(extracted["urls"]) + len(extracted["emails"])},
+        {"layer": "DNS Security", "status": "completed", "status_text": dns_res.get("status")},
+        {"layer": "IP Intelligence", "status": "completed", "isp": ip_res.get("isp")},
+        {"layer": "WHOIS Domain Age", "status": "completed", "age_days": whois_res.get("age_days")},
+        {"layer": "Threat Intelligence (VT & AbuseIPDB)", "status": "completed"},
+        {"layer": "AI Threat Engine (Groq / Gemini)", "status": "completed", "is_phishing": ai_res.get("is_phishing")},
+    ]
 
-    async def _safe_ai() -> dict:
-        try:
-            return await asyncio.wait_for(analyze_with_gemini(text), timeout=10.0)
-        except asyncio.TimeoutError:
-            log.warning("[Gemini] Request timed out after 10s")
-            return {
-                "is_phishing": False,
-                "risk_level": "LOW",
-                "attack_type": "unknown",
-                "social_engineering_detected": False,
-                "reasons": ["AI reasoning timed out."],
-                "error": "Gemini API request timed out (10s limit)",
-            }
-        except Exception as exc:
-            log.exception("[Gemini] Exception: %s", exc)
-            return {
-                "is_phishing": False,
-                "risk_level": "LOW",
-                "attack_type": "unknown",
-                "social_engineering_detected": False,
-                "reasons": [],
-                "error": f"Gemini API error: {exc}",
-            }
-
-    async def _safe_dns() -> dict:
-        if not target_for_osint:
-            return {}
-        try:
-            return await asyncio.wait_for(check_dns_security(target_for_osint), timeout=6.0)
-        except Exception as exc:
-            log.warning("[DNS] %s", exc)
-            return {}
-
-    async def _safe_ip() -> dict:
-        ip_target = extracted_ips[0] if extracted_ips else target_for_osint
-        if not ip_target:
-            return {}
-        try:
-            return await asyncio.wait_for(get_ip_details(ip_target), timeout=6.0)
-        except Exception as exc:
-            log.warning("[IP] %s", exc)
-            return {}
-
-    async def _safe_harvest() -> dict:
-        if not target_for_osint:
-            return {}
-        try:
-            return await asyncio.wait_for(run_harvester(target_for_osint), timeout=8.0)
-        except Exception as exc:
-            log.warning("[Harvester] %s", exc)
-            return {}
-
-    async def _safe_wfuzz() -> dict:
-        target_url = extracted_urls[0] if extracted_urls else ''
-        if not target_url:
-            return {}
-        try:
-            return await asyncio.wait_for(run_wfuzz(target_url), timeout=8.0)
-        except Exception as exc:
-            log.warning("[Wfuzz] %s", exc)
-            return {}
-
-    vt_result, abuse_result, ai_result, dns_result, ip_result, harvester_result, wfuzz_result = await asyncio.gather(
-        _safe_vt(), _safe_abuse(), _safe_ai(),
-        _safe_dns(), _safe_ip(), _safe_harvest(), _safe_wfuzz()
-    )
-
-
-    # ── Scoring Calculation (all 10 layers) ──
-    scoring = calculate_composite_score(
-        rule_risks=rule_risks,
-        url_risks=url_risks,
-        vt_res=vt_result,
-        abuse_res=abuse_result,
-        ai_res=ai_result,
-        whois_res=whois_res,
-        ml_data=ml_res,
-        dns_res=dns_result,
-        ip_res=ip_result,
-        harvest_res=harvester_result,
-        wfuzz_res=wfuzz_result,
-    )
-
-    # ── Attack Type (legacy smishing/brand classification) ──
-    raw_ai_type = (ai_result.get("attack_type") or "").lower()
-    text_low = text.lower()
-    all_risks_text = " ".join(
-        [(r if isinstance(r, str) else r.get('rule', '')) for r in rule_risks + url_risks]
-    ).lower()
-
-    if scoring["score"] == 0 and not rule_risks and not url_risks:
-        final_attack_type = "clean"
-    elif raw_ai_type in ["smishing", "spear_phishing", "whaling", "credential_harvesting", "brand_impersonation"]:
-        final_attack_type = raw_ai_type
-    elif "sms" in text_low or "frm:" in text_low or "shortener" in all_risks_text or (len(text) < 300 and ("click:" in text_low or "cutt.ly" in text_low or "bit.ly" in text_low)):
-        final_attack_type = "smishing"
-    elif "verification" in all_risks_text or "password" in text_low or "login" in text_low or "sign in" in text_low:
-        final_attack_type = "credential_harvesting"
-    elif "brand" in all_risks_text or "paypal" in text_low or "chase" in text_low or "bank" in text_low or "delivery" in text_low:
-        final_attack_type = "brand_impersonation"
-    elif "subject:" in text_low or "@" in text_low or len(text) > 300:
-        final_attack_type = "email_phishing"
-    else:
-        final_attack_type = "suspicious_link" if extracted_urls else "generic_phishing"
-
-    detection_flow.append({
-        "layer": "Threat Intelligence",
-        "status": "completed",
-        "virustotal": vt_result,
-        "abuseipdb": abuse_result,
-    })
-    detection_flow.append({
-        "layer": "AI Reasoning (Gemini)",
-        "status": "completed",
-        "is_phishing": ai_result.get("is_phishing", False),
-    })
+    # Legacy breakdown mapping for frontend UI cards
+    legacy_breakdown = {
+        "rule": scoring["breakdown"]["ai"],
+        "url": scoring["breakdown"]["obfuscation"],
+        "ai": scoring["breakdown"]["ai"],
+        "dns": scoring["breakdown"]["dns"],
+        "ip": scoring["breakdown"]["ip"],
+        "whois": scoring["breakdown"]["whois"],
+        "vt": scoring["breakdown"]["vt"],
+        "abuse": scoring["breakdown"]["abuse"],
+        "harvester": 0,
+        "wfuzz": 0,
+        "total": scoring["score"]
+    }
 
     response_payload = {
         "score": scoring["score"],
         "risk_score": scoring["score"],
         "composite_score": scoring["score"],
-        "risk_level": scoring["level"],
-        "threat_level": scoring["level"],
-        "attack_vector": scoring["vector"],
-        "attack_type": final_attack_type,
-        "dns_status": scoring["dns_status"],
-        "risks": rule_risks + url_risks,
-        "risk_factors": rule_risks + url_risks,
-        "breakdown": scoring["breakdown"],
-        "urls_found": extracted_urls,
-        "ips_found": extracted_ips,
+        "risk_level": scoring["risk_level"],
+        "threat_level": scoring["risk_level"],
+        "attack_vector": scoring["attack_vector"],
+        "attack_type": scoring["attack_vector"].lower().replace(" ", "_"),
+        "dns_status": dns_res.get("status", "Unknown"),
+        "final_url": final_url,
+        "extracted": extracted,
+        "breakdown": legacy_breakdown,
+        "urls_found": extracted["urls"],
+        "ips_found": extracted["ips"],
+        "dns": dns_res,
+        "ip_details": ip_res,
         "whois": whois_res,
-        "ml_model": ml_res,
-        "virustotal": vt_result,
-        "abuseipdb": abuse_result,
-        "dns": dns_result,
-        "ip_details": ip_result,
-        "harvester": harvester_result,
-        "wfuzz": wfuzz_result,
+        "virustotal": vt_res,
+        "abuseipdb": abuse_res,
         "ai_result": {
-            "is_phishing": ai_result.get("is_phishing", False),
-            "risk_level": ai_result.get("risk_level", "LOW"),
-            "attack_type": final_attack_type,
-            "social_engineering_detected": ai_result.get("social_engineering_detected", False),
-            "reasons": ai_result.get("reasons", []),
+            "is_phishing": ai_res.get("is_phishing", False),
+            "confidence": ai_res.get("confidence", 0),
+            "risk_level": scoring["risk_level"],
+            "attack_type": scoring["attack_vector"],
+            "reasons": ai_res.get("indicators", [ai_res.get("reason")]),
         },
+        "risk_factors": ai_res.get("indicators", [ai_res.get("reason")]),
         "detection_flow": detection_flow,
         "cached": False
     }
 
-    # ── Save Result to SQLite Cache ──
+    # ── Step 5: Cache in SQLite ──
     save_scan(text, scoring["score"], response_payload, scoring["score"] >= 35)
 
     return response_payload
 
 
-async def _run_virustotal(urls: list[str], text: str = "") -> dict:
-    """Run VirusTotal check on target URL or raw text (supports domain extraction)."""
-    target = urls[0] if urls else text
-    if not target:
-        return {"malicious": 0, "suspicious": 0, "error": "No URLs to scan"}
-
-    return await check_virustotal(target)
-
-
-# pyrefly: ignore [bad-function-definition]
-async def _run_abuseipdb(ips: list[str], urls: list[str] = None, text: str = "") -> dict:
-    """Run AbuseIPDB check on target IP, extracted URL, or raw text (supports DNS resolution)."""
-    target = ips[0] if ips else (urls[0] if urls else text)
-    if not target:
-        return {"abuseConfidenceScore": 0, "totalReports": 0, "risk_score": 5, "error": "No IP or target to check"}
-
-    return await check_abuseipdb(target)
-
-
 from app.services.ocr_service import scan_image as ocr_scan_image
+from app.services.gemini_service import analyze_image_vision
 
 
 @router.post("/analyze-image")
 async def analyze_image_endpoint(image: UploadFile = File(None), text: str = Form("")):
     """
-    Image Analysis Endpoint for FastAPI Heavy Backend.
-    Accepts uploaded file + optional client text, extracts text via EasyOCR (or Gemini Vision), and runs analysis.
+    Image Analysis Endpoint for EasyOCR + Gemini Vision text extraction.
     """
     extracted_text = ""
-
     if image:
         try:
             contents = await image.read()
             mime_type = image.content_type or "image/png"
             if contents:
-                # Step 1: Run EasyOCR + OpenCV
                 extracted_text = ocr_scan_image(contents).strip()
-
-                # Step 2: Fallback to Gemini Vision API if EasyOCR returns empty
                 if not extracted_text:
                     vision_res = await analyze_image_vision(contents, mime_type=mime_type)
                     extracted_text = vision_res.get("extracted_text", "").strip()
         except Exception as e:
             log.error(f"[Analyze Image Error]: {e}")
 
-    # Step 3: Fallback to client-side text (e.g. from Tesseract.js or user input) if OCR returned empty
     if not extracted_text and text and text.strip():
         extracted_text = text.strip()
 
     if not extracted_text:
-        return {"error": "No text extracted from image. Please enter text or try a clearer image.", "extracted_text": ""}
+        return {"error": "No text extracted from image.", "extracted_text": ""}
 
-    # Run extracted text through 6-layer analysis
     payload = AnalyzeRequest(text=extracted_text)
     res = await analyze_input(payload)
     res["extracted_text"] = extracted_text
