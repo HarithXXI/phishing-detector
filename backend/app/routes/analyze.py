@@ -25,9 +25,9 @@ from app.utils.scoring import calculate_composite_score
 
 # Optional OSINT services — gracefully degraded if not installed
 try:
-    from app.services.dns_checker_service import check_dns
+    from app.services.dns_checker_service import check_dns_security
 except ImportError:
-    async def check_dns(domain: str) -> dict:  # type: ignore[misc]
+    async def check_dns_security(domain: str) -> dict:  # type: ignore[misc]
         return {}
 try:
     from app.services.ip_detail_service import get_ip_details
@@ -192,7 +192,7 @@ async def analyze_input(payload: AnalyzeRequest):
         if not target_for_osint:
             return {}
         try:
-            return await asyncio.wait_for(check_dns(target_for_osint), timeout=6.0)
+            return await asyncio.wait_for(check_dns_security(target_for_osint), timeout=6.0)
         except Exception as exc:
             log.warning("[DNS] %s", exc)
             return {}
