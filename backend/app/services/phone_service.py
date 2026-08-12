@@ -1,19 +1,16 @@
 """
-Phone OSINT Intelligence Service v3.2 - Generic Approximate Intel
-
-Uses phonenumbers + pycountry + offline Indian circle database.
-Never returns N/A or empty placeholders. Always returns approximate circle, state, city, and carrier details.
+Phone OSINT Intelligence Service v3.2 - Circle Level Approx Intel
 """
 
 import json
 import os
 import re
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 
 import phonenumbers
-from phonenumbers import geocoder, carrier, timezone
+from phonenumbers import carrier, geocoder, timezone
 
-# Load offline 3000+ Indian mobile circle database
+# Path to 4400-entry Indian mobile circle database
 CIRCLE_DB_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "india_mobile_circles.json")
 
 CIRCLE_DB: Dict[str, Any] = {}
@@ -22,117 +19,104 @@ if os.path.exists(CIRCLE_DB_PATH):
         with open(CIRCLE_DB_PATH, "r", encoding="utf-8") as f:
             CIRCLE_DB = json.load(f)
     except Exception as e:
-        print(f"[Phone Service Warning] Failed to load circle DB: {e}")
+        print(f"[Phone Service Warning] Could not load circle DB: {e}")
 
 
-def phone_intel(phone_input: str) -> Dict[str, Any]:
+def get_phone_intel(phone_input: str) -> Dict[str, Any]:
     """
-    Parses and enriches any phone number with OSINT metadata and approximate region details.
+    Returns circle-level approximate location, state, city, coordinates, carrier, and MNP status.
     """
     clean_phone = (phone_input or "").strip().replace(" ", "").replace("-", "").replace("(", "").replace(")", "")
     if not clean_phone:
         return {
             "phone": phone_input,
-            "valid": False,
             "country": "Unknown",
-            "region": "Unknown",
+            "country_code": "XX",
             "state": "Unknown",
-            "city_approx": "No phone number provided",
+            "circle": "Unknown",
+            "city_approx": "No number provided",
+            "lat_lng_approx": "0.0, 0.0",
             "carrier": "Unknown",
             "line_type": "UNKNOWN",
             "timezone": "UTC",
-            "digit_length": "0 digits",
-            "lat_lng_approx": "0.0, 0.0",
-            "circle": "Unknown",
+            "validation": "Invalid",
+            "digit_length": "0/10",
+            "is_mnp_possible": False,
+            "approx_note": "No input provided",
             "risk": 0,
             "is_applicable": False
         }
 
-    # Format + prefix
     if not clean_phone.startswith("+"):
-        # Default to +91 if 10 digits starting with 6-9
         if len(clean_phone) == 10 and clean_phone[0] in "6789":
             clean_phone = "+91" + clean_phone
         else:
             clean_phone = "+" + clean_phone
 
     try:
-        parsed = phonenumbers.parse(clean_phone, None)
+        parsed = phonenumbers.parse(clean_phone, "IN")
         is_valid = phonenumbers.is_valid_number(parsed)
-        country_code = parsed.country_code
-        national_num = str(parsed.national_number)
-        region_code = phonenumbers.region_code_for_number(parsed) or "GLOBAL"
+        national = str(parsed.national_number)
+        prefix4 = national[:4]
+        prefix3 = national[:3]
 
-        country_name = geocoder.description_for_number(parsed, "en")
-        if not country_name:
-            if country_code == 91:
-                country_name = "India"
-            elif country_code == 1:
-                country_name = "United States / Canada"
-            elif country_code == 44:
-                country_name = "United Kingdom"
-            else:
-                country_name = f"Country (+{country_code})"
+        info = CIRCLE_DB.get(prefix4) or CIRCLE_DB.get(prefix3) or {
+            "circle": "Pan-India",
+            "state": "India",
+            "city_approx": "Pan-India Region",
+            "lat_lng": "20.5937, 78.9629",
+            "carrier": "Unknown Provider"
+        }
 
-        carrier_name = carrier.name_for_number(parsed, "en") or "Mobile Network Provider"
-        tz_list = timezone.time_zones_for_number(parsed)
-        tz_str = tz_list[0] if tz_list else ("Asia/Calcutta" if country_code == 91 else "UTC")
+        carrier_name = carrier.name_for_number(parsed, "en")
+        if not carrier_name or carrier_name.strip() == "":
+            carrier_name = info.get("carrier", "Airtel / Jio / Vi")
 
-        num_type = phonenumbers.number_type(parsed)
-        type_str = "MOBILE" if num_type == 1 else ("FIXED_LINE" if num_type == 0 else "VOIP/SPECIAL")
-
-        # Approximate Circle Lookup for India (+91)
-        circle_info = {}
-        if country_code == 91:
-            prefix4 = national_num[:4]
-            prefix3 = national_num[:3]
-            circle_info = CIRCLE_DB.get(prefix4) or CIRCLE_DB.get(prefix3) or {}
-
-        circle_name = circle_info.get("circle", "Pan-India Circle" if country_code == 91 else f"{region_code} Circle")
-        state_name = circle_info.get("state", "India" if country_code == 91 else country_name)
-        city_approx = circle_info.get("city_approx", f"{country_name} - {carrier_name} Circle")
-        lat_lng_approx = circle_info.get("lat_lng", "22.57, 88.36" if country_code == 91 else "28.61, 77.20")
-        if circle_info.get("carrier") and carrier_name == "Mobile Network Provider":
-            carrier_name = circle_info["carrier"]
-
-        digit_count = len(national_num)
-        digit_length_str = f"{digit_count}/10 digits" if country_code == 91 else f"{digit_count} digits"
+        country_desc = geocoder.description_for_number(parsed, "en") or "India"
+        country_code_str = phonenumbers.region_code_for_number(parsed) or "IN"
 
         return {
             "phone": clean_phone,
-            "valid": is_valid,
-            "country": f"{country_name} (+{country_code})",
-            "region": f"{region_code} - {circle_name}",
-            "state": state_name,
-            "city_approx": city_approx,
+            "country": f"{country_desc} (+{parsed.country_code}) - {info['state']}",
+            "country_code": country_code_str,
+            "state": info["state"],
+            "circle": info["circle"],
+            "city_approx": info["city_approx"],
+            "lat_lng_approx": info["lat_lng"],
             "carrier": carrier_name,
-            "line_type": type_str,
-            "timezone": tz_str,
-            "digit_length": digit_length_str,
-            "lat_lng_approx": lat_lng_approx,
-            "circle": circle_name,
+            "line_type": "MOBILE" if phonenumbers.number_type(parsed) == 1 else "FIXED",
+            "timezone": "Asia/Calcutta",
+            "validation": "Valid" if is_valid else "Unallocated / Format Issue",
+            "digit_length": f"{len(national)}/10",
+            "is_mnp_possible": True,
+            "approx_note": "Circle-level approx, not exact GPS - based on original allocation, MNP may change carrier",
             "risk": 0 if is_valid else 25,
             "is_applicable": True
         }
     except Exception as e:
         return {
             "phone": clean_phone,
-            "valid": False,
             "country": "Invalid Format",
-            "region": "Unknown",
+            "country_code": "XX",
             "state": "Unknown",
-            "city_approx": f"Parsing error: {e}",
+            "circle": "Unknown",
+            "city_approx": f"Parsing Error: {e}",
+            "lat_lng_approx": "0.0, 0.0",
             "carrier": "Unknown Provider",
             "line_type": "UNKNOWN",
             "timezone": "UTC",
+            "validation": "Invalid",
             "digit_length": "Invalid",
-            "lat_lng_approx": "0.0, 0.0",
-            "circle": "Unknown",
+            "is_mnp_possible": False,
+            "approx_note": "Failed to parse phone number",
             "risk": 40,
             "is_applicable": True
         }
 
 
-# Alias for compatibility with existing imports
+# Alias for backward compatibility
+def phone_intel(phone: str) -> Dict[str, Any]:
+    return get_phone_intel(phone)
+
 async def check_phone_osint(phone: str) -> Dict[str, Any]:
-    return phone_intel(phone)
+    return get_phone_intel(phone)
