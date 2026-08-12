@@ -24,26 +24,31 @@ PhishGuard AI v3.2 is an enterprise-grade, multi-layer phishing threat detection
 
 ---
 
-## ⚡ Instant Auto-Reload Dev Workflow (No Manual Restart)
+## ⚡ Unified Auto-Reload Dev Workflow (No Manual Restart)
 
-### 🛠️ Dev (auto-reload)
+### 🛠️ First Time Setup
+```bash
+npm run install:all
+```
+
+### ⚡ Dev (Auto-Reload Both)
 Run both backend (`:8000`) and frontend (`:5173`) with a single command from the project root:
 
 ```bash
-npm run dev  # starts backend :8000 with --reload + frontend :5173 with Vite HMR
+npm run dev
 ```
 
-- **Backend Auto-Reload**: FastAPI `--reload --reload-dir app` watches `backend/app/` for `.py` changes and auto-restarts instantly.
-- **Frontend HMR**: Vite updates the browser instantaneously when editing `frontend/src/` files.
-- **Note on `.env`**: Environment variables are loaded once at startup. If you edit `backend/.env`, restart the dev server once.
+- **Backend (`:8000`)**: `uvicorn backend.app.main:app --reload --reload-dir backend --port 8000` watches `backend/app/` for `.py` changes and auto-restarts instantly via `watchdog` / `watchfiles`.
+- **Frontend (`:5173`)**: `vite --config frontend/vite.config.js` updates the browser instantaneously via Vite HMR when editing `frontend/src/` files.
+- **Note on `.env`**: Environment variables are loaded once at startup. If you edit `backend/.env` or install a new pip package, Ctrl+C and run `npm run dev` again.
 
 ### 🏭 Prod Build & Run
 ```bash
 # Frontend build
-cd frontend && npm run build
+npm run build
 
 # Backend production runner
-cd backend && uvicorn app.main:app --host 0.0.0.0 --port 10000
+uvicorn backend.app.main:app --host 0.0.0.0 --port 8000
 ```
 
 ---
@@ -64,7 +69,8 @@ phishing-detector/
 │   │   ├── routes/               # API endpoints (/api/analyze, /api/phone-intel, etc.)
 │   │   ├── services/             # Core detection services
 │   │   └── utils/scoring.py      # Composite scoring engine
-│   ├── requirements.txt          # Python dependencies (dnspython, tldextract, phonenumbers)
+│   ├── requirements.txt          # Production Python dependencies
+│   ├── requirements-dev.txt      # Dev Python dependencies (uvicorn[standard], watchdog)
 │   └── .env.example
 ├── frontend/
 │   ├── src/
